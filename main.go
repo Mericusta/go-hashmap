@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	HASH_MAP_SIZE = 1 << 10
+	DEFAULT_HASH_MAP_SIZE = 1 << 10
+	DEFAULT_LOAD_FACTOR   = 0.75
 )
 
 type HashIntIntValue struct {
@@ -20,9 +21,11 @@ func (h *HashIntIntValue) equal(k int) bool {
 }
 
 type HashMap struct {
-	array     []*HashIntIntValue
-	hashFunc  func(int, int) int
-	collision func(int, func(*HashIntIntValue) bool, []*HashIntIntValue) int
+	loadFactor float64            // allocator
+	useCount   uint               // allocator
+	array      []*HashIntIntValue // data structure
+	hashFunc   func(int, int) int
+	collision  func(int, func(*HashIntIntValue) bool, []*HashIntIntValue) int
 }
 
 func defaultHashFunc(k, l int) int {
@@ -45,14 +48,21 @@ type HashMapOption func(*HashMap)
 
 func MakeHashMap(options ...HashMapOption) *HashMap {
 	hashMap := &HashMap{
-		array:     make([]*HashIntIntValue, HASH_MAP_SIZE),
-		hashFunc:  defaultHashFunc,
-		collision: defaultCollision,
+		loadFactor: DEFAULT_LOAD_FACTOR,
+		array:      make([]*HashIntIntValue, DEFAULT_HASH_MAP_SIZE),
+		hashFunc:   defaultHashFunc,
+		collision:  defaultCollision,
 	}
 	for _, option := range options {
 		option(hashMap)
 	}
 	return hashMap
+}
+
+func WithHashMapLoadFactor(factor float64) HashMapOption {
+	return func(h *HashMap) {
+		h.loadFactor = factor
+	}
 }
 
 func WithHashMapSize(size uint) HashMapOption {
@@ -80,10 +90,16 @@ func (h *HashMap) Set(k, v int) (int, bool) {
 	if hashIndex == -1 {
 		return hashIndex, false
 	}
+
+	if h.GetLoadFactor(1) >= h.loadFactor {
+		fmt.Printf("HashMap should reallocate\n")
+	}
+
 	h.array[hashIndex] = &HashIntIntValue{
 		k: k,
 		v: v,
 	}
+	h.useCount++
 	return hashIndex, true
 }
 
@@ -97,12 +113,32 @@ func (h *HashMap) Get(k int) (int, bool) {
 	return h.array[hashIndex].v, true
 }
 
+func (h *HashMap) Del(k int) (int, bool) {
+	hashIndex := h.collision(h.hashFunc(k, len(h.array)), func(h *HashIntIntValue) bool {
+		return h != nil && h.equal(k)
+	}, h.array)
+	if hashIndex == -1 {
+		return 0, false
+	}
+	v := h.array[hashIndex].v
+	h.array[hashIndex].v = 0
+	h.useCount--
+	return v, true
+}
+
+func (h *HashMap) GetLoadFactor(delta uint) float64 {
+	if len(h.array) == 0 {
+		return 0
+	}
+	return float64(h.useCount+delta) / float64(len(h.array))
+}
+
 func main() {
 	rand.NewSource(time.Now().UnixNano())
 	keyValueMap := make(map[int]int)
-	for index := 0; index != HASH_MAP_SIZE>>8; index++ {
+	for index := 0; index != DEFAULT_HASH_MAP_SIZE>>8; index++ {
 		for {
-			k := rand.Intn(HASH_MAP_SIZE) + 1
+			k := rand.Intn(DEFAULT_HASH_MAP_SIZE) + 1
 			if _, hasK := keyValueMap[k]; !hasK {
 				keyValueMap[k] = index
 				fmt.Printf("Key:value = [%v:%v]\n", k, index)
@@ -111,11 +147,12 @@ func main() {
 		}
 	}
 
-	defaultHashMap := MakeHashMap(WithHashMapSize(HASH_MAP_SIZE >> 9))
+	defaultHashMap := MakeHashMap(WithHashMapSize(DEFAULT_HASH_MAP_SIZE >> 9))
 	for key, value := range keyValueMap {
 		if _, ok := defaultHashMap.Set(key, value); !ok {
 			fmt.Printf("defaultHashMap.Set(%v, %v) failed\n", key, value)
 		} else {
+			fmt.Printf("after Set, defaultHashMap load factor is %v\n", defaultHashMap.GetLoadFactor(0))
 			// fmt.Printf("defaultHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
 		}
 	}
@@ -124,6 +161,15 @@ func main() {
 		if _value, hasKey := defaultHashMap.Get(key); !hasKey || _value != value {
 			fmt.Printf("defaultHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
 		} else {
+			// fmt.Printf("defaultHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+		}
+	}
+
+	for key, value := range keyValueMap {
+		if _value, hasKey := defaultHashMap.Del(key); !hasKey || _value != value {
+			fmt.Printf("defaultHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+		} else {
+			fmt.Printf("after Del, defaultHashMap load factor is %v\n", defaultHashMap.GetLoadFactor(0))
 			// fmt.Printf("defaultHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
 		}
 	}
