@@ -11,28 +11,28 @@ const (
 	DEFAULT_LOAD_FACTOR   = 0.75
 )
 
-type HashIntIntValue struct {
+type HashValue struct {
 	k int
 	v int
 }
 
-func (h *HashIntIntValue) equal(k int) bool {
+func (h *HashValue) equal(k int) bool {
 	return h.k == k
 }
 
 type HashMap struct {
-	loadFactor float64            // allocator
-	useCount   uint               // allocator
-	array      []*HashIntIntValue // data structure
+	loadFactor float64      // allocator
+	useCount   uint         // allocator
+	array      []*HashValue // data structure
 	hashFunc   func(int, int) int
-	collision  func(int, func(*HashIntIntValue) bool, []*HashIntIntValue) int
+	collision  func(int, func(*HashValue) bool, []*HashValue) int
 }
 
 func defaultHashFunc(k, l int) int {
 	return k & (l - 1)
 }
 
-func defaultCollision(i int, compareFunc func(*HashIntIntValue) bool, a []*HashIntIntValue) int {
+func defaultCollision(i int, compareFunc func(*HashValue) bool, a []*HashValue) int {
 	if i < 0 || len(a) <= i {
 		return -1
 	}
@@ -49,7 +49,7 @@ type HashMapOption func(*HashMap)
 func MakeHashMap(options ...HashMapOption) *HashMap {
 	hashMap := &HashMap{
 		loadFactor: DEFAULT_LOAD_FACTOR,
-		array:      make([]*HashIntIntValue, DEFAULT_HASH_MAP_SIZE),
+		array:      make([]*HashValue, DEFAULT_HASH_MAP_SIZE),
 		hashFunc:   defaultHashFunc,
 		collision:  defaultCollision,
 	}
@@ -67,7 +67,7 @@ func WithHashMapLoadFactor(factor float64) HashMapOption {
 
 func WithHashMapSize(size uint) HashMapOption {
 	return func(h *HashMap) {
-		h.array = make([]*HashIntIntValue, size)
+		h.array = make([]*HashValue, size)
 	}
 }
 
@@ -77,14 +77,14 @@ func WithHashMapHashFunc(f func(int, int) int) HashMapOption {
 	}
 }
 
-func WithHashMapCollision(f func(int, func(*HashIntIntValue) bool, []*HashIntIntValue) int) HashMapOption {
+func WithHashMapCollision(f func(int, func(*HashValue) bool, []*HashValue) int) HashMapOption {
 	return func(h *HashMap) {
 		h.collision = f
 	}
 }
 
 func (h *HashMap) Set(k, v int) (int, bool) {
-	hashIndex := h.collision(h.hashFunc(k, len(h.array)), func(h *HashIntIntValue) bool {
+	hashIndex := h.collision(h.hashFunc(k, len(h.array)), func(h *HashValue) bool {
 		return h == nil
 	}, h.array)
 	if hashIndex == -1 {
@@ -95,7 +95,7 @@ func (h *HashMap) Set(k, v int) (int, bool) {
 		fmt.Printf("HashMap should reallocate\n")
 	}
 
-	h.array[hashIndex] = &HashIntIntValue{
+	h.array[hashIndex] = &HashValue{
 		k: k,
 		v: v,
 	}
@@ -104,7 +104,7 @@ func (h *HashMap) Set(k, v int) (int, bool) {
 }
 
 func (h *HashMap) Get(k int) (int, bool) {
-	hashIndex := h.collision(h.hashFunc(k, len(h.array)), func(h *HashIntIntValue) bool {
+	hashIndex := h.collision(h.hashFunc(k, len(h.array)), func(h *HashValue) bool {
 		return h != nil && h.equal(k)
 	}, h.array)
 	if hashIndex == -1 {
@@ -114,7 +114,7 @@ func (h *HashMap) Get(k int) (int, bool) {
 }
 
 func (h *HashMap) Del(k int) (int, bool) {
-	hashIndex := h.collision(h.hashFunc(k, len(h.array)), func(h *HashIntIntValue) bool {
+	hashIndex := h.collision(h.hashFunc(k, len(h.array)), func(h *HashValue) bool {
 		return h != nil && h.equal(k)
 	}, h.array)
 	if hashIndex == -1 {
@@ -147,7 +147,12 @@ func main() {
 		}
 	}
 
-	defaultHashMap := MakeHashMap(WithHashMapSize(DEFAULT_HASH_MAP_SIZE >> 9))
+	hashMapTest(keyValueMap)
+	hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
+}
+
+func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
+	defaultHashMap := MakeHashMap(options...)
 	for key, value := range keyValueMap {
 		if _, ok := defaultHashMap.Set(key, value); !ok {
 			fmt.Printf("defaultHashMap.Set(%v, %v) failed\n", key, value)
