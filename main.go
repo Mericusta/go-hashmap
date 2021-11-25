@@ -30,16 +30,21 @@ type HashMapData interface {
 }
 
 // open address collision
-type ArrayHashMapData struct {
+
+// liner detection and hashing
+
+// liner detection and hashing, awful but works...
+
+type ldhHashMapData struct {
 	array []*HashValue
 }
 
-func (d *ArrayHashMapData) Len() int {
+func (d *ldhHashMapData) Len() int {
 	return len(d.array)
 }
 
-func (d *ArrayHashMapData) get(hashIndex, key int, op func(int) (int, bool)) (int, bool) {
-	for index := hashIndex; index != len(d.array); index++ {
+func (d *ldhHashMapData) get(hashIndex, key int, op func(int) (int, bool)) (int, bool) {
+	for index := hashIndex; index < len(d.array); index++ {
 		if d.array[index] != nil && d.array[index].k == key {
 			return op(index)
 		}
@@ -47,7 +52,7 @@ func (d *ArrayHashMapData) get(hashIndex, key int, op func(int) (int, bool)) (in
 	return 0, false
 }
 
-func (d *ArrayHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
+func (d *ldhHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	for index := hashIndex; index != len(d.array); index++ {
 		if d.array[index] == nil || d.array[index].k == hashValue.k {
 			d.array[index] = hashValue
@@ -57,13 +62,13 @@ func (d *ArrayHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	return false
 }
 
-func (d *ArrayHashMapData) Get(hashIndex, key int) (int, bool) {
+func (d *ldhHashMapData) Get(hashIndex, key int) (int, bool) {
 	return d.get(hashIndex, key, func(index int) (int, bool) {
 		return d.array[index].v, true
 	})
 }
 
-func (d *ArrayHashMapData) Del(hashIndex, key int) (int, bool) {
+func (d *ldhHashMapData) Del(hashIndex, key int) (int, bool) {
 	return d.get(hashIndex, key, func(index int) (int, bool) {
 		value := d.array[index].v
 		d.array[index] = nil
@@ -71,7 +76,7 @@ func (d *ArrayHashMapData) Del(hashIndex, key int) (int, bool) {
 	})
 }
 
-func (d *ArrayHashMapData) Range(op func(*HashValue) bool) {
+func (d *ldhHashMapData) Range(op func(*HashValue) bool) {
 	for index := 0; index != d.Len(); index++ {
 		if d.array[index] == nil {
 			continue
@@ -82,29 +87,108 @@ func (d *ArrayHashMapData) Range(op func(*HashValue) bool) {
 	}
 }
 
-func (d *ArrayHashMapData) Reallocate(size uint) {
+func (d *ldhHashMapData) Reallocate(size uint) {
 	if uint(len(d.array)) != size {
 		d.array = make([]*HashValue, size)
 	}
 	// TODO: move data
 }
 
-type LinkedListHashMapData struct {
+// second detection and hashing
+
+// second detection and hashing is nearly shit...
+
+type sdhHashMapData struct {
+	array []*HashValue
+}
+
+func (d *sdhHashMapData) Len() int {
+	return len(d.array)
+}
+
+func (d *sdhHashMapData) get(hashIndex, key int, op func(int) (int, bool)) (int, bool) {
+	for index := 1; index <= len(d.array)/2; index++ {
+		lIndex := hashIndex - index*index
+		rIndex := hashIndex + index*index
+		if lIndex >= 0 && d.array[lIndex] != nil && d.array[lIndex].k == key {
+			return op(lIndex)
+		} else if rIndex < len(d.array) && d.array[rIndex] != nil && d.array[rIndex].k == key {
+			return op(rIndex)
+		}
+	}
+	return 0, false
+}
+
+func (d *sdhHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
+	for index := 1; index <= len(d.array)/2; index++ {
+		lIndex := hashIndex - index*index
+		rIndex := hashIndex + index*index
+		if lIndex >= 0 && (d.array[lIndex] == nil || d.array[lIndex].k == hashValue.k) {
+			d.array[lIndex] = hashValue
+			return true
+		} else if rIndex < len(d.array) && (d.array[rIndex] == nil || d.array[rIndex].k == hashValue.k) {
+			d.array[rIndex] = hashValue
+			return true
+		}
+	}
+	return false
+}
+
+func (d *sdhHashMapData) Get(hashIndex, key int) (int, bool) {
+	return d.get(hashIndex, key, func(index int) (int, bool) {
+		return d.array[index].v, true
+	})
+}
+
+func (d *sdhHashMapData) Del(hashIndex, key int) (int, bool) {
+	return d.get(hashIndex, key, func(index int) (int, bool) {
+		value := d.array[index].v
+		d.array[index] = nil
+		return value, true
+	})
+}
+
+func (d *sdhHashMapData) Range(op func(*HashValue) bool) {
+	for index := 0; index != d.Len(); index++ {
+		if d.array[index] == nil {
+			continue
+		}
+		if !op(d.array[index]) {
+			return
+		}
+	}
+}
+
+func (d *sdhHashMapData) Reallocate(size uint) {
+	if uint(len(d.array)) != size {
+		d.array = make([]*HashValue, size)
+	}
+	// TODO: move data
+}
+
+// random detection and hashing
+
+// random detection and hashing is a shit...
+
+// chain address collision
+
+// doubly linked list DLL
+
+type linkedListHashMapData struct {
 	buckets []*LinkedListNode
 }
 
-// chain address collision
 type LinkedListNode struct {
 	nextNode *LinkedListNode
 	preNode  *LinkedListNode
 	value    *HashValue
 }
 
-func (d *LinkedListHashMapData) Len() int {
+func (d *linkedListHashMapData) Len() int {
 	return len(d.buckets)
 }
 
-func (d *LinkedListHashMapData) Get(hashIndex, key int) (int, bool) {
+func (d *linkedListHashMapData) Get(hashIndex, key int) (int, bool) {
 	for p := d.buckets[hashIndex]; p != nil; p = p.nextNode {
 		if p.value != nil && p.value.k == key {
 			return p.value.v, true
@@ -113,7 +197,7 @@ func (d *LinkedListHashMapData) Get(hashIndex, key int) (int, bool) {
 	return 0, false
 }
 
-func (d *LinkedListHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
+func (d *linkedListHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	var preNode *LinkedListNode
 	for p := d.buckets[hashIndex]; p != nil; p = p.nextNode {
 		if p.value.k == hashValue.k {
@@ -135,7 +219,7 @@ func (d *LinkedListHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	return true
 }
 
-func (d *LinkedListHashMapData) Del(hashIndex, key int) (int, bool) {
+func (d *linkedListHashMapData) Del(hashIndex, key int) (int, bool) {
 	for p := d.buckets[hashIndex]; p != nil; p = p.nextNode {
 		if p.value != nil && p.value.k == key {
 			value := p.value.v
@@ -165,7 +249,7 @@ func (d *LinkedListHashMapData) Del(hashIndex, key int) (int, bool) {
 	return 0, false
 }
 
-func (d *LinkedListHashMapData) Range(op func(*HashValue) bool) {
+func (d *linkedListHashMapData) Range(op func(*HashValue) bool) {
 	for index := 0; index != d.Len(); index++ {
 		for p := d.buckets[index]; p != nil; p = p.nextNode {
 			if !op(p.value) {
@@ -175,12 +259,14 @@ func (d *LinkedListHashMapData) Range(op func(*HashValue) bool) {
 	}
 }
 
-func (d *LinkedListHashMapData) Reallocate(size uint) {
+func (d *linkedListHashMapData) Reallocate(size uint) {
 	if uint(len(d.buckets)) != size {
 		d.buckets = make([]*LinkedListNode, size)
 	}
 	// TODO: move data
 }
+
+// binary search tree
 
 type HashMap struct {
 	loadFactor float64     // allocator
@@ -240,7 +326,7 @@ type HashMapOption func(*HashMap)
 func MakeHashMap(options ...HashMapOption) *HashMap {
 	hashMap := &HashMap{
 		loadFactor: DEFAULT_LOAD_FACTOR,
-		data: &ArrayHashMapData{
+		data: &ldhHashMapData{
 			array: make([]*HashValue, DEFAULT_HASH_MAP_SIZE),
 		},
 		hashFunc: defaultHashFunc,
@@ -278,7 +364,7 @@ func WithHashMapHashFunc(f func(int, uint) int) HashMapOption {
 }
 
 func main() {
-	rand.NewSource(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano())
 	keyValueMap := make(map[int]int)
 	for index := 0; index != DEFAULT_HASH_MAP_SIZE>>8; index++ {
 		for {
@@ -291,9 +377,12 @@ func main() {
 		}
 	}
 
-	hashMapTest(keyValueMap)
-	hashMapTest(keyValueMap, WithHashMapData(&LinkedListHashMapData{
-		buckets: make([]*LinkedListNode, DEFAULT_HASH_MAP_SIZE),
+	hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
+	hashMapTest(keyValueMap, WithHashMapData(&sdhHashMapData{
+		array: make([]*HashValue, DEFAULT_HASH_MAP_SIZE>>9),
+	}))
+	hashMapTest(keyValueMap, WithHashMapData(&linkedListHashMapData{
+		buckets: make([]*LinkedListNode, DEFAULT_HASH_MAP_SIZE>>9),
 	}))
 }
 
