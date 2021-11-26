@@ -29,9 +29,11 @@ type HashMapData interface {
 	Reallocate(uint)
 }
 
+// ----------------------------------------------------------------
+
 // open address collision
 
-// liner detection and hashing
+// liner detection and hashing LDH
 
 // liner detection and hashing, awful but works...
 
@@ -77,11 +79,11 @@ func (d *ldhHashMapData) Del(hashIndex, key int) (int, bool) {
 }
 
 func (d *ldhHashMapData) Range(op func(*HashValue) bool) {
-	for index := 0; index != d.Len(); index++ {
-		if d.array[index] == nil {
+	for _, hashValue := range d.array {
+		if hashValue == nil {
 			continue
 		}
-		if !op(d.array[index]) {
+		if !op(hashValue) {
 			return
 		}
 	}
@@ -94,7 +96,7 @@ func (d *ldhHashMapData) Reallocate(size uint) {
 	// TODO: move data
 }
 
-// second detection and hashing
+// second detection and hashing SDH
 
 // second detection and hashing is nearly shit...
 
@@ -149,11 +151,11 @@ func (d *sdhHashMapData) Del(hashIndex, key int) (int, bool) {
 }
 
 func (d *sdhHashMapData) Range(op func(*HashValue) bool) {
-	for index := 0; index != d.Len(); index++ {
-		if d.array[index] == nil {
+	for _, hashValue := range d.array {
+		if hashValue == nil {
 			continue
 		}
-		if !op(d.array[index]) {
+		if !op(hashValue) {
 			return
 		}
 	}
@@ -174,21 +176,21 @@ func (d *sdhHashMapData) Reallocate(size uint) {
 
 // doubly linked list DLL
 
-type linkedListHashMapData struct {
-	buckets []*LinkedListNode
-}
-
-type LinkedListNode struct {
-	nextNode *LinkedListNode
-	preNode  *LinkedListNode
+type dllNode struct {
+	nextNode *dllNode
+	preNode  *dllNode
 	value    *HashValue
 }
 
-func (d *linkedListHashMapData) Len() int {
+type dllHashMapData struct {
+	buckets []*dllNode
+}
+
+func (d *dllHashMapData) Len() int {
 	return len(d.buckets)
 }
 
-func (d *linkedListHashMapData) Get(hashIndex, key int) (int, bool) {
+func (d *dllHashMapData) Get(hashIndex, key int) (int, bool) {
 	for p := d.buckets[hashIndex]; p != nil; p = p.nextNode {
 		if p.value != nil && p.value.k == key {
 			return p.value.v, true
@@ -197,8 +199,8 @@ func (d *linkedListHashMapData) Get(hashIndex, key int) (int, bool) {
 	return 0, false
 }
 
-func (d *linkedListHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
-	var preNode *LinkedListNode
+func (d *dllHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
+	var preNode *dllNode
 	for p := d.buckets[hashIndex]; p != nil; p = p.nextNode {
 		if p.value.k == hashValue.k {
 			p.value = hashValue
@@ -207,7 +209,7 @@ func (d *linkedListHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 			preNode = p
 		}
 	}
-	vNode := &LinkedListNode{
+	vNode := &dllNode{
 		value: hashValue,
 	}
 	if preNode == nil {
@@ -219,7 +221,7 @@ func (d *linkedListHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	return true
 }
 
-func (d *linkedListHashMapData) Del(hashIndex, key int) (int, bool) {
+func (d *dllHashMapData) Del(hashIndex, key int) (int, bool) {
 	for p := d.buckets[hashIndex]; p != nil; p = p.nextNode {
 		if p.value != nil && p.value.k == key {
 			value := p.value.v
@@ -249,24 +251,320 @@ func (d *linkedListHashMapData) Del(hashIndex, key int) (int, bool) {
 	return 0, false
 }
 
-func (d *linkedListHashMapData) Range(op func(*HashValue) bool) {
-	for index := 0; index != d.Len(); index++ {
-		for p := d.buckets[index]; p != nil; p = p.nextNode {
-			if !op(p.value) {
+func (d *dllHashMapData) Range(op func(*HashValue) bool) {
+	for _, bucket := range d.buckets {
+		for node := bucket; node != nil; node = node.nextNode {
+			if !op(node.value) {
 				return
 			}
 		}
 	}
 }
 
-func (d *linkedListHashMapData) Reallocate(size uint) {
+func (d *dllHashMapData) Reallocate(size uint) {
 	if uint(len(d.buckets)) != size {
-		d.buckets = make([]*LinkedListNode, size)
+		d.buckets = make([]*dllNode, size)
 	}
 	// TODO: move data
 }
 
-// binary search tree
+// binary search tree BST
+
+type bstNode struct {
+	leftNode  *bstNode
+	rightNode *bstNode
+	value     *HashValue
+}
+
+func (n *bstNode) preOrderTraversal(op func(*HashValue) bool) bool {
+	if !op(n.value) {
+		return false
+	}
+	if n.leftNode != nil {
+		n.leftNode.preOrderTraversal(op)
+	}
+	if n.rightNode != nil {
+		n.rightNode.preOrderTraversal(op)
+	}
+	return true
+}
+
+func (n *bstNode) inOrderTraversal(op func(*HashValue) bool) bool {
+	if n.leftNode != nil {
+		n.leftNode.inOrderTraversal(op)
+	}
+	if !op(n.value) {
+		return false
+	}
+	if n.rightNode != nil {
+		n.rightNode.inOrderTraversal(op)
+	}
+	return true
+}
+
+type bstHashMapData struct {
+	buckets []*bstNode
+}
+
+func (d *bstHashMapData) Len() int {
+	return len(d.buckets)
+}
+
+func (d *bstHashMapData) Get(hashIndex, key int) (int, bool) {
+	if d.buckets[hashIndex] == nil {
+		return 0, false
+	} else {
+		node := d.buckets[hashIndex]
+		for {
+			if key < node.value.k {
+				if node.leftNode == nil {
+					return 0, false
+				} else {
+					node = node.leftNode
+				}
+			} else if node.value.k < key {
+				if node.rightNode == nil {
+					return 0, false
+				} else {
+					node = node.rightNode
+				}
+			} else {
+				return node.value.v, true
+			}
+		}
+	}
+}
+
+func (d *bstHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
+	vNode := &bstNode{
+		value: hashValue,
+	}
+	if d.buckets[hashIndex] == nil {
+		d.buckets[hashIndex] = vNode
+	} else {
+		node := d.buckets[hashIndex]
+		for {
+			if hashValue.k < node.value.k {
+				if node.leftNode == nil {
+					node.leftNode = vNode
+					return true
+				} else {
+					node = node.leftNode
+				}
+			} else if node.value.k < hashValue.k {
+				if node.rightNode == nil {
+					node.rightNode = vNode
+					return true
+				} else {
+					node = node.rightNode
+				}
+			} else {
+				node.value = hashValue
+				return true
+			}
+		}
+	}
+	return true
+}
+
+// 移动左子树到右子树最小节点的左子树下
+func (d *bstHashMapData) del(hashIndex, key int) (int, bool) {
+	if d.buckets[hashIndex] == nil {
+		return 0, true
+	} else {
+		var parentNode *bstNode
+		node := d.buckets[hashIndex]
+		for {
+			if key < node.value.k {
+				if node.leftNode == nil {
+					return 0, true
+				} else {
+					parentNode = node
+					node = node.leftNode
+				}
+			} else if node.value.k < key {
+				if node.rightNode == nil {
+					return 0, true
+				} else {
+					parentNode = node
+					node = node.rightNode
+				}
+			} else {
+				value := node.value.v
+				if parentNode == nil {
+					d.buckets[hashIndex] = nil
+				} else {
+					if parentNode.leftNode == node {
+						if node.rightNode == nil {
+							parentNode.leftNode = node.leftNode
+						} else {
+							parentNode.leftNode = node.rightNode
+							if node.leftNode != nil {
+								leftSubNode := node.leftNode
+								for node = node.rightNode; node.leftNode != nil; node = node.leftNode {
+								}
+								node.leftNode = leftSubNode
+							}
+						}
+					} else if parentNode.rightNode == node {
+						if node.rightNode == nil {
+							parentNode.rightNode = node.leftNode
+						} else {
+							parentNode.rightNode = node.rightNode
+							if node.leftNode != nil {
+								leftSubNode := node.leftNode
+								for node = node.rightNode; node.leftNode != nil; node = node.leftNode {
+								}
+								node.leftNode = leftSubNode
+							}
+						}
+					} else {
+						// TODO: BST error, need range and print tree
+						return 0, false
+					}
+				}
+				return value, true
+			}
+		}
+	}
+}
+
+// 删除匹配节点，移动右子树最小节点到匹配节点
+func (d *bstHashMapData) Del(hashIndex, key int) (int, bool) {
+	if d.buckets[hashIndex] == nil {
+		return 0, true
+	} else {
+		var parentNode *bstNode
+		node := d.buckets[hashIndex]
+		for index := 0; index != 64; index++ {
+			if key < node.value.k {
+				if node.leftNode == nil {
+					return 0, true
+				} else {
+					parentNode = node
+					node = node.leftNode
+				}
+			} else if node.value.k < key {
+				if node.rightNode == nil {
+					return 0, true
+				} else {
+					parentNode = node
+					node = node.rightNode
+				}
+			} else {
+				value, deleteNode := node.value.v, node
+
+				var newNode *bstNode
+				leftNode := node.leftNode
+				rightNode := node.rightNode
+				minRightNodeParentNode := node
+				for node = node.rightNode; node != nil && node.leftNode != nil; minRightNodeParentNode, node = node, node.leftNode {
+				}
+				if node == nil {
+					newNode = leftNode
+				} else if minRightNodeParentNode != node {
+					minRightNodeParentNode.rightNode = node.rightNode
+					node.leftNode = leftNode
+					node.rightNode = rightNode
+					newNode = node
+				} else {
+					newNode = node.rightNode
+				}
+
+				if parentNode == nil {
+					d.buckets[hashIndex] = newNode
+				} else if parentNode.leftNode == deleteNode {
+					parentNode.leftNode = newNode
+				} else if parentNode.rightNode == deleteNode {
+					parentNode.rightNode = newNode
+				} else {
+					// TODO: error
+					return 0, false
+				}
+
+				deleteNode.leftNode = nil
+				deleteNode.rightNode = nil
+
+				// if parentNode == nil {
+				// 	if rightNode == nil {
+				// 		d.buckets[hashIndex] = leftNode
+				// 	} else {
+				// 		minLeftNodeParent, deleteNode := node, node
+				// 		for node = node.rightNode; node.leftNode != nil; minLeftNodeParent, node = node, node.leftNode {
+				// 		}
+				// 		if minLeftNodeParent.rightNode == node {
+				// 			d.buckets[hashIndex] = node
+				// 		} else {
+				// 			minLeftNodeParent.leftNode = node.rightNode
+				// 			node.leftNode = leftNode
+				// 			node.rightNode = rightNode
+				// 			d.buckets[hashIndex] = node
+				// 		}
+				// 		deleteNode.leftNode = nil
+				// 		deleteNode.rightNode = nil
+				// 	}
+				// } else if parentNode.leftNode == node {
+				// 	if rightNode == nil {
+				// 		parentNode.leftNode = leftNode
+				// 	} else {
+				// 		minLeftNodeParent, deleteNode := node, node
+				// 		for node = node.rightNode; node.leftNode != nil; minLeftNodeParent, node = node, node.leftNode {
+				// 		}
+				// 		minLeftNodeParent.leftNode = node.rightNode
+				// 		node.leftNode = leftNode
+				// 		node.rightNode = rightNode
+				// 		parentNode.leftNode = node
+				// 		deleteNode.leftNode = nil
+				// 		deleteNode.rightNode = nil
+				// 	}
+				// } else if parentNode.rightNode == node {
+				// 	if rightNode == nil {
+				// 		parentNode.rightNode = leftNode
+				// 	} else {
+				// 		minLeftNodeParent, deleteNode := node, node
+				// 		for node = node.rightNode; node.leftNode != nil; minLeftNodeParent, node = node, node.leftNode {
+				// 		}
+				// 		minLeftNodeParent.leftNode = node.rightNode
+				// 		node.leftNode = leftNode
+				// 		node.rightNode = rightNode
+				// 		parentNode.rightNode = node
+				// 		deleteNode.leftNode = nil
+				// 		deleteNode.rightNode = nil
+				// 	}
+				// } else {
+				// 	// TODO: BST error, need range and print tree
+				// 	return 0, false
+				// }
+				return value, true
+			}
+		}
+		fmt.Printf("DEBUG: search but not find!")
+		d.buckets[hashIndex].inOrderTraversal(func(h *HashValue) bool {
+			fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
+			return true
+		})
+		return 0, false
+	}
+}
+
+func (d *bstHashMapData) Range(op func(*HashValue) bool) {
+	for _, bucket := range d.buckets {
+		if bucket != nil {
+			if !bucket.inOrderTraversal(op) {
+				return
+			}
+		}
+	}
+}
+
+func (d *bstHashMapData) Reallocate(size uint) {
+	if uint(len(d.buckets)) != size {
+		d.buckets = make([]*bstNode, size)
+	}
+	// TODO: move data
+}
+
+// ----------------------------------------------------------------
 
 type HashMap struct {
 	loadFactor float64     // allocator
@@ -366,23 +664,26 @@ func WithHashMapHashFunc(f func(int, uint) int) HashMapOption {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	keyValueMap := make(map[int]int)
-	for index := 0; index != DEFAULT_HASH_MAP_SIZE>>8; index++ {
+	for index := 0; index != DEFAULT_HASH_MAP_SIZE>>7; index++ {
 		for {
 			k := rand.Intn(DEFAULT_HASH_MAP_SIZE) + 1
 			if _, hasK := keyValueMap[k]; !hasK {
 				keyValueMap[k] = index
-				fmt.Printf("Key:value = [%v:%v]\n", k, index)
+				fmt.Printf("generate Key:Value = [%v:%v]\n", k, index)
 				break
 			}
 		}
 	}
 
-	hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
-	hashMapTest(keyValueMap, WithHashMapData(&sdhHashMapData{
-		array: make([]*HashValue, DEFAULT_HASH_MAP_SIZE>>9),
-	}))
-	hashMapTest(keyValueMap, WithHashMapData(&linkedListHashMapData{
-		buckets: make([]*LinkedListNode, DEFAULT_HASH_MAP_SIZE>>9),
+	// hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
+	// hashMapTest(keyValueMap, WithHashMapData(&sdhHashMapData{
+	// 	array: make([]*HashValue, DEFAULT_HASH_MAP_SIZE>>9),
+	// }))
+	// hashMapTest(keyValueMap, WithHashMapData(&dllHashMapData{
+	// 	buckets: make([]*dllNode, DEFAULT_HASH_MAP_SIZE>>9),
+	// }))
+	hashMapTest(keyValueMap, WithHashMapData(&bstHashMapData{
+		buckets: make([]*bstNode, DEFAULT_HASH_MAP_SIZE>>10),
 	}))
 }
 
@@ -392,13 +693,13 @@ func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 		if ok := testHashMap.Set(key, value); !ok {
 			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
 		} else {
-			fmt.Printf("after Set, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
+			// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
 			// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
 		}
 	}
 
 	testHashMap.Range(func(k, v int) bool {
-		fmt.Printf("key: %v, value: %v\n", k, v)
+		fmt.Printf("range key: %v, value: %v\n", k, v)
 		return true
 	})
 
@@ -411,11 +712,12 @@ func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 	}
 
 	for key, value := range keyValueMap {
+		fmt.Printf("testHashMap.Del(%v)\n", key)
 		if _value, hasKey := testHashMap.Del(key); !hasKey || _value != value {
 			fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
 		} else {
-			fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
-			// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+			// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
+			// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
 		}
 	}
 
