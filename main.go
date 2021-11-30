@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"strings"
 	"time"
 )
@@ -273,9 +272,9 @@ func (d *dllHashMapData) Reallocate(size uint) {
 // binary search tree BST
 
 type bstNode struct {
-	leftNode  *bstNode
-	rightNode *bstNode
-	value     *HashValue
+	leftChild  *bstNode
+	rightChild *bstNode
+	value      *HashValue
 }
 
 func (n *bstNode) preOrderTraversal(op func(*HashValue) bool, deep int) bool {
@@ -283,24 +282,24 @@ func (n *bstNode) preOrderTraversal(op func(*HashValue) bool, deep int) bool {
 	if !op(n.value) {
 		return false
 	}
-	if n.leftNode != nil {
-		n.leftNode.preOrderTraversal(op, deep+1)
+	if n.leftChild != nil {
+		n.leftChild.preOrderTraversal(op, deep+1)
 	}
-	if n.rightNode != nil {
-		n.rightNode.preOrderTraversal(op, deep+1)
+	if n.rightChild != nil {
+		n.rightChild.preOrderTraversal(op, deep+1)
 	}
 	return true
 }
 
 func (n *bstNode) inOrderTraversal(op func(*HashValue) bool) bool {
-	if n.leftNode != nil {
-		n.leftNode.inOrderTraversal(op)
+	if n.leftChild != nil {
+		n.leftChild.inOrderTraversal(op)
 	}
 	if !op(n.value) {
 		return false
 	}
-	if n.rightNode != nil {
-		n.rightNode.inOrderTraversal(op)
+	if n.rightChild != nil {
+		n.rightChild.inOrderTraversal(op)
 	}
 	return true
 }
@@ -320,16 +319,16 @@ func (d *bstHashMapData) Get(hashIndex, key int) (int, bool) {
 		node := d.buckets[hashIndex]
 		for {
 			if key < node.value.k {
-				if node.leftNode == nil {
+				if node.leftChild == nil {
 					return 0, false
 				} else {
-					node = node.leftNode
+					node = node.leftChild
 				}
 			} else if node.value.k < key {
-				if node.rightNode == nil {
+				if node.rightChild == nil {
 					return 0, false
 				} else {
-					node = node.rightNode
+					node = node.rightChild
 				}
 			} else {
 				return node.value.v, true
@@ -348,18 +347,18 @@ func (d *bstHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 		node := d.buckets[hashIndex]
 		for {
 			if hashValue.k < node.value.k {
-				if node.leftNode == nil {
-					node.leftNode = vNode
+				if node.leftChild == nil {
+					node.leftChild = vNode
 					return true
 				} else {
-					node = node.leftNode
+					node = node.leftChild
 				}
 			} else if node.value.k < hashValue.k {
-				if node.rightNode == nil {
-					node.rightNode = vNode
+				if node.rightChild == nil {
+					node.rightChild = vNode
 					return true
 				} else {
-					node = node.rightNode
+					node = node.rightChild
 				}
 			} else {
 				node.value = hashValue
@@ -379,46 +378,46 @@ func (d *bstHashMapData) del(hashIndex, key int) (int, bool) {
 		node := d.buckets[hashIndex]
 		for {
 			if key < node.value.k {
-				if node.leftNode == nil {
+				if node.leftChild == nil {
 					return 0, true
 				} else {
 					parentNode = node
-					node = node.leftNode
+					node = node.leftChild
 				}
 			} else if node.value.k < key {
-				if node.rightNode == nil {
+				if node.rightChild == nil {
 					return 0, true
 				} else {
 					parentNode = node
-					node = node.rightNode
+					node = node.rightChild
 				}
 			} else {
 				value := node.value.v
 				if parentNode == nil {
 					d.buckets[hashIndex] = nil
 				} else {
-					if parentNode.leftNode == node {
-						if node.rightNode == nil {
-							parentNode.leftNode = node.leftNode
+					if parentNode.leftChild == node {
+						if node.rightChild == nil {
+							parentNode.leftChild = node.leftChild
 						} else {
-							parentNode.leftNode = node.rightNode
-							if node.leftNode != nil {
-								leftSubNode := node.leftNode
-								for node = node.rightNode; node.leftNode != nil; node = node.leftNode {
+							parentNode.leftChild = node.rightChild
+							if node.leftChild != nil {
+								leftSubNode := node.leftChild
+								for node = node.rightChild; node.leftChild != nil; node = node.leftChild {
 								}
-								node.leftNode = leftSubNode
+								node.leftChild = leftSubNode
 							}
 						}
-					} else if parentNode.rightNode == node {
-						if node.rightNode == nil {
-							parentNode.rightNode = node.leftNode
+					} else if parentNode.rightChild == node {
+						if node.rightChild == nil {
+							parentNode.rightChild = node.leftChild
 						} else {
-							parentNode.rightNode = node.rightNode
-							if node.leftNode != nil {
-								leftSubNode := node.leftNode
-								for node = node.rightNode; node.leftNode != nil; node = node.leftNode {
+							parentNode.rightChild = node.rightChild
+							if node.leftChild != nil {
+								leftSubNode := node.leftChild
+								for node = node.rightChild; node.leftChild != nil; node = node.leftChild {
 								}
-								node.leftNode = leftSubNode
+								node.leftChild = leftSubNode
 							}
 						}
 					} else {
@@ -447,55 +446,55 @@ func (d *bstHashMapData) Del(hashIndex, key int) (int, bool) {
 		// }, 0)
 		for {
 			if key < node.value.k {
-				if node.leftNode == nil {
+				if node.leftChild == nil {
 					return 0, true
 				} else {
 					parentNode = node
-					node = node.leftNode
+					node = node.leftChild
 				}
 			} else if node.value.k < key {
-				if node.rightNode == nil {
+				if node.rightChild == nil {
 					return 0, true
 				} else {
 					parentNode = node
-					node = node.rightNode
+					node = node.rightChild
 				}
 			} else {
 				value, deleteNode := node.value.v, node
 
 				var newNode *bstNode
-				leftNode := node.leftNode
-				rightNode := node.rightNode
+				leftChild := node.leftChild
+				rightChild := node.rightChild
 				minRightNodeParentNode := node
-				for node = node.rightNode; node != nil && node.leftNode != nil; minRightNodeParentNode, node = node, node.leftNode {
+				for node = node.rightChild; node != nil && node.leftChild != nil; minRightNodeParentNode, node = node, node.leftChild {
 				}
 				if node == nil { // 单左链表
-					newNode = leftNode
+					newNode = leftChild
 				} else if minRightNodeParentNode == deleteNode { // 单右链表
-					newNode = deleteNode.rightNode
-					newNode.leftNode = leftNode
+					newNode = deleteNode.rightChild
+					newNode.leftChild = leftChild
 				} else if minRightNodeParentNode != node {
-					minRightNodeParentNode.leftNode = node.rightNode
-					node.leftNode = leftNode
-					node.rightNode = rightNode
+					minRightNodeParentNode.leftChild = node.rightChild
+					node.leftChild = leftChild
+					node.rightChild = rightChild
 					newNode = node
 				} else {
-					newNode = node.rightNode
+					newNode = node.rightChild
 				}
 
 				if parentNode == nil {
 					d.buckets[hashIndex] = newNode
-				} else if parentNode.leftNode == deleteNode {
-					parentNode.leftNode = newNode
-				} else if parentNode.rightNode == deleteNode {
-					parentNode.rightNode = newNode
+				} else if parentNode.leftChild == deleteNode {
+					parentNode.leftChild = newNode
+				} else if parentNode.rightChild == deleteNode {
+					parentNode.rightChild = newNode
 				} else {
 					// TODO: error
 					return 0, false
 				}
 
-				deleteNode.leftNode = nil
-				deleteNode.rightNode = nil
+				deleteNode.leftChild = nil
+				deleteNode.rightChild = nil
 
 				// if d.buckets[hashIndex] != nil {
 				// 	fmt.Printf("After Delete %v preOrder\n", key)
@@ -533,6 +532,254 @@ func (d *bstHashMapData) Range(op func(*HashValue) bool) {
 func (d *bstHashMapData) Reallocate(size uint) {
 	if uint(len(d.buckets)) != size {
 		d.buckets = make([]*bstNode, size)
+	}
+	// TODO: move data
+}
+
+// avl tree
+
+type avltNode struct {
+	parentNode  *avltNode
+	leftHeight  int
+	leftChild   *avltNode
+	rightHeight int
+	rightChild  *avltNode
+	value       *HashValue
+}
+
+func (n *avltNode) preOrderTraversal(op func(*HashValue, int, int) bool, deep int) bool {
+	fmt.Printf("%v", strings.Repeat("\t", deep))
+	if !op(n.value, n.leftHeight, n.rightHeight) {
+		return false
+	}
+	if n.leftChild != nil {
+		n.leftChild.preOrderTraversal(op, deep+1)
+	}
+	if n.rightChild != nil {
+		n.rightChild.preOrderTraversal(op, deep+1)
+	}
+	return true
+}
+
+func (n *avltNode) inOrderTraversal(op func(*HashValue) bool) bool {
+	if n.leftChild != nil {
+		n.leftChild.inOrderTraversal(op)
+	}
+	if !op(n.value) {
+		return false
+	}
+	if n.rightChild != nil {
+		n.rightChild.inOrderTraversal(op)
+	}
+	return true
+}
+
+func (n *avltNode) checkBalance(height int) (*avltNode, int) {
+	if n.parentNode == nil {
+		return nil, 0
+	}
+	if n.parentNode.leftChild == n {
+		n.parentNode.leftHeight = height
+	} else if n.parentNode.rightChild == n {
+		n.parentNode.rightHeight = height
+	}
+	if diff := n.parentNode.leftHeight - n.parentNode.rightHeight; diff < -1 || 1 < diff {
+		fmt.Printf("node %v lost balance\n", n.parentNode.value.k)
+		return n.parentNode, diff
+	}
+	return n.parentNode.checkBalance(height + 1)
+}
+
+func (n *avltNode) setLeftChild(childNode *avltNode) {
+	n.leftChild = childNode
+	if childNode != nil {
+		n.leftHeight = childNode.getHeight() + 1
+	} else {
+		n.leftHeight = 0
+	}
+}
+
+func (n *avltNode) setRightChild(childNode *avltNode) {
+	n.rightChild = childNode
+	if childNode != nil {
+		n.rightHeight = childNode.getHeight() + 1
+	} else {
+		n.rightHeight = 0
+	}
+}
+
+func (n *avltNode) getHeight() int {
+	if n.leftHeight < n.rightHeight {
+		return n.rightHeight
+	}
+	return n.leftHeight
+}
+
+//  5         7
+// 1 7   ->  5 8
+//  6 8     1 6 9
+//     9
+func (n *avltNode) leftRotate() *avltNode {
+	newRootNode := n.rightChild
+	n.setRightChild(newRootNode.leftChild)
+	if newRootNode.leftChild != nil {
+		newRootNode.leftChild.parentNode = n
+	}
+	newRootNode.setLeftChild(n)
+	n.parentNode = newRootNode
+	return newRootNode
+}
+
+//    5        3
+//   3 9  ->  2 5
+//  2 4      1 4 9
+// 1
+func (n *avltNode) rightRotate() *avltNode {
+	newRootNode := n.leftChild
+	n.setLeftChild(newRootNode.rightChild)
+	if newRootNode.rightChild != nil {
+		newRootNode.rightChild.parentNode = n
+	}
+	newRootNode.setRightChild(n)
+	n.parentNode = newRootNode
+	return newRootNode
+}
+
+type avltHashMapData struct {
+	buckets []*avltNode
+}
+
+func (d *avltHashMapData) Len() int {
+	return len(d.buckets)
+}
+
+func (d *avltHashMapData) Get(hashIndex, key int) (int, bool) {
+	if d.buckets[hashIndex] == nil {
+		return 0, false
+	} else {
+		node := d.buckets[hashIndex]
+		for {
+			if key < node.value.k {
+				if node.leftChild == nil {
+					return 0, false
+				} else {
+					node = node.leftChild
+				}
+			} else if node.value.k < key {
+				if node.rightChild == nil {
+					return 0, false
+				} else {
+					node = node.rightChild
+				}
+			} else {
+				return node.value.v, true
+			}
+		}
+	}
+}
+
+func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
+	vNode := &avltNode{
+		value: hashValue,
+	}
+	if d.buckets[hashIndex] == nil {
+		d.buckets[hashIndex] = vNode
+	} else {
+		node := d.buckets[hashIndex]
+		for {
+			if hashValue.k < node.value.k {
+				if node.leftChild == nil {
+					vNode.parentNode = node
+					node.leftChild = vNode
+					break
+				} else {
+					node = node.leftChild
+				}
+			} else if node.value.k < hashValue.k {
+				if node.rightChild == nil {
+					vNode.parentNode = node
+					node.rightChild = vNode
+					break
+				} else {
+					node = node.rightChild
+				}
+			} else {
+				node.value = hashValue
+				return true
+			}
+		}
+	}
+	lostBalanceNode, diff := vNode.checkBalance(1)
+	if lostBalanceNode != nil {
+		fmt.Printf("avl-tree need change to keep balance\n")
+		lostBalanceNodeParent := lostBalanceNode.parentNode
+		if diff < 0 {
+			fmt.Printf("avl-tree need left hand\n")
+
+			// 左子树为空并且是右内拐的情况要特殊处理
+			// 先将右子树右旋，再将整体左旋
+			if lostBalanceNode.leftChild == nil && lostBalanceNode.rightChild.rightChild == nil {
+				lostBalanceNode.setRightChild(lostBalanceNode.rightChild.rightRotate())
+				lostBalanceNode.rightChild.parentNode = lostBalanceNode
+			}
+
+			if lostBalanceNodeParent == nil {
+				d.buckets[hashIndex] = lostBalanceNode.leftRotate()
+				d.buckets[hashIndex].parentNode = nil
+			} else {
+				lostBalanceNodeParent.setRightChild(lostBalanceNode.leftRotate())
+				lostBalanceNodeParent.rightChild.parentNode = lostBalanceNodeParent
+			}
+		} else {
+			fmt.Printf("avl-tree need right hand\n")
+
+			// 右子树为空并且是左内拐的情况要特殊处理
+			// 先将左子树左旋，再将整体右旋
+			if lostBalanceNode.rightChild == nil && lostBalanceNode.leftChild.leftChild == nil {
+				lostBalanceNode.setLeftChild(lostBalanceNode.leftChild.leftRotate())
+				lostBalanceNode.leftChild.parentNode = lostBalanceNode
+			}
+
+			if lostBalanceNodeParent == nil {
+				d.buckets[hashIndex] = lostBalanceNode.rightRotate()
+				d.buckets[hashIndex].parentNode = nil
+			} else {
+				lostBalanceNodeParent.setLeftChild(lostBalanceNode.rightRotate())
+				lostBalanceNodeParent.leftChild.parentNode = lostBalanceNodeParent
+			}
+		}
+	}
+
+	d.buckets[hashIndex].preOrderTraversal(func(h *HashValue, leftHeight, rightHeight int) bool {
+		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+		return true
+	}, 0)
+
+	return true
+}
+
+func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
+	return 0, false
+}
+
+func (d *avltHashMapData) Range(op func(*HashValue) bool) {
+	for _, bucket := range d.buckets {
+		if bucket != nil {
+			fmt.Printf("inOrderTraversal\n")
+			if !bucket.inOrderTraversal(op) {
+				return
+			}
+			// fmt.Printf("preOrderTraversal\n")
+			// if !bucket.preOrderTraversal(op, 0) {
+			// 	return
+			// }
+		}
+	}
+}
+
+func (d *avltHashMapData) Reallocate(size uint) {
+	if uint(len(d.buckets)) != size {
+		d.buckets = make([]*avltNode, size)
 	}
 	// TODO: move data
 }
@@ -649,16 +896,22 @@ func main() {
 			}
 		}
 
-		// keyValueMap = map[int]int{
-		// 	3:   0,
-		// 	974: 1,
-		// 	554: 2,
-		// 	875: 3,
-		// 	44:  4,
-		// 	834: 5,
-		// 	296: 6,
-		// 	458: 7,
-		// }
+		keyValueMap = map[int]int{
+			// 247: 0,
+			// 500: 1,
+			// 909: 2,
+			// 280: 3,
+			// 78:  4,
+			// 981: 5,
+			// 976: 6,
+			// 43:  7,
+			66: 1,
+			60: 2,
+			77: 3,
+			75: 4,
+			88: 5,
+			99: 6,
+		}
 
 		// hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
 		// hashMapTest(keyValueMap, WithHashMapData(&sdhHashMapData{
@@ -667,8 +920,11 @@ func main() {
 		// hashMapTest(keyValueMap, WithHashMapData(&dllHashMapData{
 		// 	buckets: make([]*dllNode, DEFAULT_HASH_MAP_SIZE>>9),
 		// }))
-		hashMapTest(keyValueMap, WithHashMapData(&bstHashMapData{
-			buckets: make([]*bstNode, DEFAULT_HASH_MAP_SIZE>>10),
+		// hashMapTest(keyValueMap, WithHashMapData(&bstHashMapData{
+		// 	buckets: make([]*bstNode, DEFAULT_HASH_MAP_SIZE>>10),
+		// }))
+		hashMapTest(keyValueMap, WithHashMapData(&avltHashMapData{
+			buckets: make([]*avltNode, DEFAULT_HASH_MAP_SIZE>>10),
 		}))
 	}
 }
@@ -686,63 +942,64 @@ func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 	debugData := debugData{}
 	debugData.kvMap = keyValueMap
 
-	for key, value := range keyValueMap {
-		fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
-		debugData.setSlice = append(debugData.setSlice, key)
-		if ok := testHashMap.Set(key, value); !ok {
-			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
-		} else {
-			// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
-			// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
-		}
-	}
-
-	// insertKeySlice := []int{10, 9} // 单向左子树
-	// insertKeySlice := []int{9, 10} // 单向右子树
-	// insertKeySlice := []int{974, 554, 875, 44, 834, 296, 458, 3}
-	// for _, key := range insertKeySlice {
-	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
-	// 	if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
-	// 		fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
+	// for key, value := range keyValueMap {
+	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
+	// 	debugData.setSlice = append(debugData.setSlice, key)
+	// 	if ok := testHashMap.Set(key, value); !ok {
+	// 		fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
 	// 	} else {
 	// 		// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
 	// 		// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
 	// 	}
 	// }
 
-	testHashMap.Range(func(k, v int) bool {
-		fmt.Printf("range key: %v, value: %v\n", k, v)
-		return true
-	})
-
-	for key, value := range keyValueMap {
-		if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
-			fmt.Printf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+	// insertKeySlice := []int{10, 9} // 单向左子树
+	// insertKeySlice := []int{9, 10} // 单向右子树
+	// insertKeySlice := []int{78, 981, 976, 43}
+	insertKeySlice := []int{66, 60, 77, 75, 88, 99}
+	for _, key := range insertKeySlice {
+		fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
+		if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
+			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
 		} else {
-			// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+			// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
+			// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
 		}
 	}
 
-	for key, value := range keyValueMap {
-		fmt.Printf("testHashMap.Del(%v)\n", key)
-		debugData.delSlice = append(debugData.delSlice, key)
-		if _value, hasKey := testHashMap.Del(key); !hasKey || _value != value {
-			fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-			t := time.Now().UnixNano()
-			outputFile, openError := os.Create(fmt.Sprintf("%v.log", t))
-			if openError != nil {
-				fmt.Printf("Error: open file occurs error: %v\n", openError)
-				return
-			}
-			outputFile.WriteString(fmt.Sprintf("key value map: %v\n", debugData.kvMap))
-			outputFile.WriteString(fmt.Sprintf("set slice: %v\n", debugData.setSlice))
-			// outputFile.Write()
-			outputFile.WriteString(fmt.Sprintf("del slice: %v\n", debugData.delSlice))
-		} else {
-			// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
-			// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
-		}
-	}
+	// testHashMap.Range(func(k, v int) bool {
+	// 	fmt.Printf("range key: %v, value: %v\n", k, v)
+	// 	return true
+	// })
+
+	// for key, value := range keyValueMap {
+	// 	if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
+	// 		fmt.Printf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+	// 	} else {
+	// 		// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+	// 	}
+	// }
+
+	// for key, value := range keyValueMap {
+	// 	fmt.Printf("testHashMap.Del(%v)\n", key)
+	// 	debugData.delSlice = append(debugData.delSlice, key)
+	// 	if _value, hasKey := testHashMap.Del(key); !hasKey || _value != value {
+	// 		fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+	// 		t := time.Now().UnixNano()
+	// 		outputFile, openError := os.Create(fmt.Sprintf("%v.log", t))
+	// 		if openError != nil {
+	// 			fmt.Printf("Error: open file occurs error: %v\n", openError)
+	// 			return
+	// 		}
+	// 		outputFile.WriteString(fmt.Sprintf("key value map: %v\n", debugData.kvMap))
+	// 		outputFile.WriteString(fmt.Sprintf("set slice: %v\n", debugData.setSlice))
+	// 		// outputFile.Write()
+	// 		outputFile.WriteString(fmt.Sprintf("del slice: %v\n", debugData.delSlice))
+	// 	} else {
+	// 		// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
+	// 		// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
+	// 	}
+	// }
 
 	// for _, key := range []int{875, 974, 554, 44, 834, 296, 458, 3} {
 	// 	fmt.Printf("testHashMap.Del(%v)\n", key)
@@ -754,8 +1011,8 @@ func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 	// 	}
 	// }
 
-	testHashMap.Range(func(k, v int) bool {
-		fmt.Printf("key: %v, value: %v\n", k, v)
-		return true
-	})
+	// testHashMap.Range(func(k, v int) bool {
+	// 	fmt.Printf("key: %v, value: %v\n", k, v)
+	// 	return true
+	// })
 }
