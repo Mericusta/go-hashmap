@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 )
@@ -547,9 +548,23 @@ type avltNode struct {
 	value       *HashValue
 }
 
-func (n *avltNode) preOrderTraversal(op func(*HashValue, int, int) bool, deep int) bool {
+// func (n *avltNode) preOrderTraversal(op func(*HashValue, int, int) bool, deep int) bool {
+// 	fmt.Printf("%v", strings.Repeat("\t", deep))
+// 	if !op(n.value, n.leftHeight, n.rightHeight) {
+// 		return false
+// 	}
+// 	if n.leftChild != nil {
+// 		n.leftChild.preOrderTraversal(op, deep+1)
+// 	}
+// 	if n.rightChild != nil {
+// 		n.rightChild.preOrderTraversal(op, deep+1)
+// 	}
+// 	return true
+// }
+
+func (n *avltNode) preOrderTraversal(op func(*HashValue) bool, deep int) bool {
 	fmt.Printf("%v", strings.Repeat("\t", deep))
-	if !op(n.value, n.leftHeight, n.rightHeight) {
+	if !op(n.value) {
 		return false
 	}
 	if n.leftChild != nil {
@@ -574,6 +589,7 @@ func (n *avltNode) inOrderTraversal(op func(*HashValue) bool) bool {
 	return true
 }
 
+// TODO: just check, no update
 func (n *avltNode) checkBalance(height int) (*avltNode, int) {
 	if n.parentNode == nil {
 		return nil, 0
@@ -585,9 +601,51 @@ func (n *avltNode) checkBalance(height int) (*avltNode, int) {
 	}
 	if diff := n.parentNode.leftHeight - n.parentNode.rightHeight; diff < -1 || 1 < diff {
 		fmt.Printf("node %v lost balance\n", n.parentNode.value.k)
+		n.parentNode.preOrderTraversal(func(h *HashValue) bool {
+			fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
+			return true
+		}, 0)
 		return n.parentNode, diff
 	}
 	return n.parentNode.checkBalance(height + 1)
+}
+
+type rotateType int
+
+const (
+	UNKNOWN rotateType = iota
+	LL
+	LR
+	RL
+	RR
+)
+
+func (n *avltNode) getRotateType(childNode *avltNode) rotateType {
+	if n.leftChild != nil {
+		if n.leftChild.leftChild != nil {
+			if n.leftChild.leftChild == childNode || n.leftChild.leftChild.leftChild == childNode || n.leftChild.leftChild.rightChild == childNode {
+				return LL
+			}
+		}
+		if n.leftChild.rightChild != nil {
+			if n.leftChild.rightChild == childNode || n.leftChild.rightChild.leftChild == childNode || n.leftChild.rightChild.rightChild == childNode {
+				return LR
+			}
+		}
+	}
+	if n.rightChild != nil {
+		if n.rightChild.rightChild != nil {
+			if n.rightChild.rightChild == childNode || n.rightChild.rightChild.leftChild == childNode || n.rightChild.rightChild.rightChild == childNode {
+				return RR
+			}
+		}
+		if n.rightChild.leftChild != nil {
+			if n.rightChild.leftChild == childNode || n.rightChild.leftChild.leftChild == childNode || n.rightChild.leftChild.rightChild == childNode {
+				return RL
+			}
+		}
+	}
+	return UNKNOWN
 }
 
 func (n *avltNode) setLeftChild(childNode *avltNode) {
@@ -621,12 +679,16 @@ func (n *avltNode) getHeight() int {
 //     9
 func (n *avltNode) leftRotate() *avltNode {
 	newRootNode := n.rightChild
-	n.setRightChild(newRootNode.leftChild)
-	if newRootNode.leftChild != nil {
-		newRootNode.leftChild.parentNode = n
+	if newRootNode != nil {
+		n.setRightChild(newRootNode.leftChild)
+		if newRootNode.leftChild != nil {
+			newRootNode.leftChild.parentNode = n
+		}
+		newRootNode.setLeftChild(n)
+		n.parentNode = newRootNode
+	} else {
+		n.setRightChild(nil)
 	}
-	newRootNode.setLeftChild(n)
-	n.parentNode = newRootNode
 	return newRootNode
 }
 
@@ -636,12 +698,16 @@ func (n *avltNode) leftRotate() *avltNode {
 // 1
 func (n *avltNode) rightRotate() *avltNode {
 	newRootNode := n.leftChild
-	n.setLeftChild(newRootNode.rightChild)
-	if newRootNode.rightChild != nil {
-		newRootNode.rightChild.parentNode = n
+	if newRootNode != nil {
+		n.setLeftChild(newRootNode.rightChild)
+		if newRootNode.rightChild != nil {
+			newRootNode.rightChild.parentNode = n
+		}
+		newRootNode.setRightChild(n)
+		n.parentNode = newRootNode
+	} else {
+		n.setLeftChild(nil)
 	}
-	newRootNode.setRightChild(n)
-	n.parentNode = newRootNode
 	return newRootNode
 }
 
@@ -709,51 +775,51 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 			}
 		}
 	}
-	lostBalanceNode, diff := vNode.checkBalance(1)
+	lostBalanceNode, _ := vNode.checkBalance(1)
 	if lostBalanceNode != nil {
-		fmt.Printf("avl-tree need change to keep balance\n")
 		lostBalanceNodeParent := lostBalanceNode.parentNode
-		if diff < 0 {
-			fmt.Printf("avl-tree need left hand\n")
+		var newRootNode *avltNode
+		rotateType := lostBalanceNode.getRotateType(vNode)
+		fmt.Printf("avl-tree need change to keep balance, rotate type %v\n", rotateType)
+		switch rotateType {
+		case LR:
+			lostBalanceNode.setLeftChild(lostBalanceNode.leftChild.leftRotate())
+			lostBalanceNode.leftChild.parentNode = lostBalanceNode
+			fallthrough
+		case LL:
+			newRootNode = lostBalanceNode.rightRotate()
+		case RL:
+			lostBalanceNode.setRightChild(lostBalanceNode.rightChild.rightRotate())
+			lostBalanceNode.rightChild.parentNode = lostBalanceNode
+			fallthrough
+		case RR:
+			newRootNode = lostBalanceNode.leftRotate()
+		default:
+			fmt.Printf("Error: lost balance node rotate type wrong\n")
+			lostBalanceNode.preOrderTraversal(func(h *HashValue) bool {
+				fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
+				return true
+			}, 0)
+		}
 
-			// 左子树为空并且是右内拐的情况要特殊处理
-			// 先将右子树右旋，再将整体左旋
-			if lostBalanceNode.leftChild == nil && lostBalanceNode.rightChild.rightChild == nil {
-				lostBalanceNode.setRightChild(lostBalanceNode.rightChild.rightRotate())
-				lostBalanceNode.rightChild.parentNode = lostBalanceNode
-			}
-
-			if lostBalanceNodeParent == nil {
-				d.buckets[hashIndex] = lostBalanceNode.leftRotate()
-				d.buckets[hashIndex].parentNode = nil
-			} else {
-				lostBalanceNodeParent.setRightChild(lostBalanceNode.leftRotate())
-				lostBalanceNodeParent.rightChild.parentNode = lostBalanceNodeParent
-			}
+		if lostBalanceNodeParent == nil {
+			d.buckets[hashIndex] = newRootNode
+			d.buckets[hashIndex].parentNode = nil
 		} else {
-			fmt.Printf("avl-tree need right hand\n")
-
-			// 右子树为空并且是左内拐的情况要特殊处理
-			// 先将左子树左旋，再将整体右旋
-			if lostBalanceNode.rightChild == nil && lostBalanceNode.leftChild.leftChild == nil {
-				lostBalanceNode.setLeftChild(lostBalanceNode.leftChild.leftRotate())
-				lostBalanceNode.leftChild.parentNode = lostBalanceNode
-			}
-
-			if lostBalanceNodeParent == nil {
-				d.buckets[hashIndex] = lostBalanceNode.rightRotate()
-				d.buckets[hashIndex].parentNode = nil
-			} else {
-				lostBalanceNodeParent.setLeftChild(lostBalanceNode.rightRotate())
+			if rotateType == LR || rotateType == LL {
+				lostBalanceNodeParent.setLeftChild(newRootNode)
 				lostBalanceNodeParent.leftChild.parentNode = lostBalanceNodeParent
+			} else if rotateType == RL || rotateType == RR {
+				lostBalanceNodeParent.setRightChild(newRootNode)
+				lostBalanceNodeParent.rightChild.parentNode = lostBalanceNodeParent
 			}
 		}
 	}
 
-	d.buckets[hashIndex].preOrderTraversal(func(h *HashValue, leftHeight, rightHeight int) bool {
-		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
-		return true
-	}, 0)
+	// d.buckets[hashIndex].preOrderTraversal(func(h *HashValue, leftHeight, rightHeight int) bool {
+	// 	fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+	// 	return true
+	// }, 0)
 
 	return true
 }
@@ -765,14 +831,16 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 func (d *avltHashMapData) Range(op func(*HashValue) bool) {
 	for _, bucket := range d.buckets {
 		if bucket != nil {
+			fmt.Println()
 			fmt.Printf("inOrderTraversal\n")
 			if !bucket.inOrderTraversal(op) {
 				return
 			}
-			// fmt.Printf("preOrderTraversal\n")
-			// if !bucket.preOrderTraversal(op, 0) {
-			// 	return
-			// }
+			fmt.Println()
+			fmt.Printf("preOrderTraversal\n")
+			if !bucket.preOrderTraversal(op, 0) {
+				return
+			}
 		}
 	}
 }
@@ -883,6 +951,7 @@ func WithHashMapHashFunc(f func(int, uint) int) HashMapOption {
 
 func main() {
 	for index := 0; index != 1; index++ {
+		fmt.Println()
 		rand.Seed(time.Now().UnixNano())
 		keyValueMap := make(map[int]int)
 		for index := 0; index != DEFAULT_HASH_MAP_SIZE>>7; index++ {
@@ -897,20 +966,14 @@ func main() {
 		}
 
 		keyValueMap = map[int]int{
-			// 247: 0,
-			// 500: 1,
-			// 909: 2,
-			// 280: 3,
-			// 78:  4,
-			// 981: 5,
-			// 976: 6,
-			// 43:  7,
-			66: 1,
-			60: 2,
-			77: 3,
-			75: 4,
-			88: 5,
-			99: 6,
+			27:  0,
+			283: 1,
+			379: 2,
+			767: 3,
+			4:   4,
+			463: 5,
+			930: 6,
+			444: 7,
 		}
 
 		// hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
@@ -936,11 +999,26 @@ type debugData struct {
 	dataPreview strings.Builder
 }
 
+func (d debugData) outputFile() {
+	t := time.Now().UnixNano()
+	outputFile, openError := os.Create(fmt.Sprintf("%v.log", t))
+	if openError != nil {
+		fmt.Printf("Error: open file occurs error: %v\n", openError)
+		return
+	}
+	outputFile.WriteString(fmt.Sprintf("key value map: %v\n", d.kvMap))
+	outputFile.WriteString(fmt.Sprintf("set slice: %v\n", d.setSlice))
+	outputFile.WriteString(fmt.Sprintf("del slice: %v\n", d.delSlice))
+	outputFile.Close()
+}
+
 func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 	testHashMap := MakeHashMap(options...)
 
 	debugData := debugData{}
 	debugData.kvMap = keyValueMap
+
+	fmt.Println()
 
 	// for key, value := range keyValueMap {
 	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
@@ -953,10 +1031,7 @@ func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 	// 	}
 	// }
 
-	// insertKeySlice := []int{10, 9} // 单向左子树
-	// insertKeySlice := []int{9, 10} // 单向右子树
-	// insertKeySlice := []int{78, 981, 976, 43}
-	insertKeySlice := []int{66, 60, 77, 75, 88, 99}
+	insertKeySlice := []int{4, 463, 930, 444, 27, 283, 379, 767}
 	for _, key := range insertKeySlice {
 		fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
 		if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
@@ -967,10 +1042,12 @@ func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 		}
 	}
 
-	// testHashMap.Range(func(k, v int) bool {
-	// 	fmt.Printf("range key: %v, value: %v\n", k, v)
-	// 	return true
-	// })
+	debugData.outputFile()
+
+	testHashMap.Range(func(k, v int) bool {
+		fmt.Printf("range key: %v, value: %v\n", k, v)
+		return true
+	})
 
 	// for key, value := range keyValueMap {
 	// 	if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
