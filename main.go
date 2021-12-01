@@ -576,6 +576,20 @@ func (n *avltNode) preOrderTraversal(op func(*HashValue) bool, deep int) bool {
 	return true
 }
 
+func (n *avltNode) preOrderTraversalWithHeight(op func(*HashValue, int, int) bool, deep int) bool {
+	fmt.Printf("%v", strings.Repeat("\t", deep))
+	if !op(n.value, n.leftHeight, n.rightHeight) {
+		return false
+	}
+	if n.leftChild != nil {
+		n.leftChild.preOrderTraversalWithHeight(op, deep+1)
+	}
+	if n.rightChild != nil {
+		n.rightChild.preOrderTraversalWithHeight(op, deep+1)
+	}
+	return true
+}
+
 func (n *avltNode) inOrderTraversal(op func(*HashValue) bool) bool {
 	if n.leftChild != nil {
 		n.leftChild.inOrderTraversal(op)
@@ -800,18 +814,22 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 				fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
 				return true
 			}, 0)
+			panic(lostBalanceNode)
 		}
 
 		if lostBalanceNodeParent == nil {
 			d.buckets[hashIndex] = newRootNode
 			d.buckets[hashIndex].parentNode = nil
 		} else {
-			if rotateType == LR || rotateType == LL {
+			if lostBalanceNodeParent.leftChild == lostBalanceNode {
 				lostBalanceNodeParent.setLeftChild(newRootNode)
 				lostBalanceNodeParent.leftChild.parentNode = lostBalanceNodeParent
-			} else if rotateType == RL || rotateType == RR {
+			} else if lostBalanceNodeParent.rightChild == lostBalanceNode {
 				lostBalanceNodeParent.setRightChild(newRootNode)
 				lostBalanceNodeParent.rightChild.parentNode = lostBalanceNodeParent
+			} else {
+				fmt.Printf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k)
+				panic(lostBalanceNode)
 			}
 		}
 	}
@@ -820,6 +838,11 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	// 	fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
 	// 	return true
 	// }, 0)
+
+	d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+		return true
+	}, 0)
 
 	return true
 }
@@ -965,16 +988,16 @@ func main() {
 			}
 		}
 
-		keyValueMap = map[int]int{
-			27:  0,
-			283: 1,
-			379: 2,
-			767: 3,
-			4:   4,
-			463: 5,
-			930: 6,
-			444: 7,
-		}
+		// keyValueMap = map[int]int{
+		// 	27:  0,
+		// 	283: 1,
+		// 	379: 2,
+		// 	767: 3,
+		// 	4:   4,
+		// 	463: 5,
+		// 	930: 6,
+		// 	444: 7,
+		// }
 
 		// hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
 		// hashMapTest(keyValueMap, WithHashMapData(&sdhHashMapData{
@@ -1018,31 +1041,35 @@ func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 	debugData := debugData{}
 	debugData.kvMap = keyValueMap
 
+	defer func() {
+		if err := recover(); err != nil {
+			debugData.outputFile()
+		}
+	}()
+
 	fmt.Println()
 
-	// for key, value := range keyValueMap {
-	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
-	// 	debugData.setSlice = append(debugData.setSlice, key)
-	// 	if ok := testHashMap.Set(key, value); !ok {
-	// 		fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
-	// 	} else {
-	// 		// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
-	// 		// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
-	// 	}
-	// }
-
-	insertKeySlice := []int{4, 463, 930, 444, 27, 283, 379, 767}
-	for _, key := range insertKeySlice {
-		fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
-		if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
-			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
+	for key, value := range keyValueMap {
+		fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
+		debugData.setSlice = append(debugData.setSlice, key)
+		if ok := testHashMap.Set(key, value); !ok {
+			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
 		} else {
 			// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
 			// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
 		}
 	}
 
-	debugData.outputFile()
+	// insertKeySlice := []int{4, 463, 930, 444, 27, 283, 379, 767}
+	// for _, key := range insertKeySlice {
+	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
+	// 	if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
+	// 		fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
+	// 	} else {
+	// 		// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
+	// 		// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
+	// 	}
+	// }
 
 	testHashMap.Range(func(k, v int) bool {
 		fmt.Printf("range key: %v, value: %v\n", k, v)
