@@ -437,14 +437,14 @@ func (d *bstHashMapData) Del(hashIndex, key int) (int, bool) {
 	if d.buckets[hashIndex] == nil {
 		return 0, true
 	} else {
-		var parentNode *bstNode
-		node := d.buckets[hashIndex]
 		// fmt.Println()
 		// fmt.Printf("Before Delete %v preOrder\n", key)
 		// d.buckets[hashIndex].preOrderTraversal(func(h *HashValue) bool {
 		// 	fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
 		// 	return true
 		// }, 0)
+		var parentNode *bstNode
+		node := d.buckets[hashIndex]
 		for {
 			if key < node.value.k {
 				if node.leftChild == nil {
@@ -462,7 +462,6 @@ func (d *bstHashMapData) Del(hashIndex, key int) (int, bool) {
 				}
 			} else {
 				value, deleteNode := node.value.v, node
-
 				var newNode *bstNode
 				leftChild := node.leftChild
 				rightChild := node.rightChild
@@ -548,20 +547,6 @@ type avltNode struct {
 	value       *HashValue
 }
 
-// func (n *avltNode) preOrderTraversal(op func(*HashValue, int, int) bool, deep int) bool {
-// 	fmt.Printf("%v", strings.Repeat("\t", deep))
-// 	if !op(n.value, n.leftHeight, n.rightHeight) {
-// 		return false
-// 	}
-// 	if n.leftChild != nil {
-// 		n.leftChild.preOrderTraversal(op, deep+1)
-// 	}
-// 	if n.rightChild != nil {
-// 		n.rightChild.preOrderTraversal(op, deep+1)
-// 	}
-// 	return true
-// }
-
 func (n *avltNode) preOrderTraversal(op func(*HashValue) bool, deep int) bool {
 	fmt.Printf("%v", strings.Repeat("\t", deep))
 	if !op(n.value) {
@@ -604,9 +589,9 @@ func (n *avltNode) inOrderTraversal(op func(*HashValue) bool) bool {
 }
 
 // TODO: just check, no update
-func (n *avltNode) checkBalance(height int) (*avltNode, int) {
+func (n *avltNode) checkAndUpdateBalance(height int) *avltNode {
 	if n.parentNode == nil {
-		return nil, 0
+		return nil
 	}
 	if n.parentNode.leftChild == n {
 		n.parentNode.leftHeight = height
@@ -615,13 +600,54 @@ func (n *avltNode) checkBalance(height int) (*avltNode, int) {
 	}
 	if diff := n.parentNode.leftHeight - n.parentNode.rightHeight; diff < -1 || 1 < diff {
 		fmt.Printf("node %v lost balance\n", n.parentNode.value.k)
-		n.parentNode.preOrderTraversal(func(h *HashValue) bool {
-			fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
+		n.parentNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+			fmt.Printf("DEBUG: range key: %v, value: %v, leftHeight = %v, rightHeight = %v\n", h.k, h.v, leftHeight, rightHeight)
 			return true
 		}, 0)
-		return n.parentNode, diff
+		return n.parentNode
 	}
-	return n.parentNode.checkBalance(height + 1)
+	return n.parentNode.checkAndUpdateBalance(height + 1)
+}
+
+func (n *avltNode) rebalance() int {
+	if n.leftChild != nil {
+		n.leftHeight = n.leftChild.rebalance() + 1
+	} else {
+		n.leftHeight = 0
+	}
+	if n.rightChild != nil {
+		n.rightHeight = n.rightChild.rebalance() + 1
+	} else {
+		n.rightHeight = 0
+	}
+	return n.getHeight()
+}
+
+func (n *avltNode) checkBalance() *avltNode {
+	var leftLostBalanceNode, rightLostBalanceNode *avltNode
+	if n.leftChild != nil {
+		leftLostBalanceNode = n.leftChild.checkBalance()
+	}
+	if n.rightChild != nil {
+		rightLostBalanceNode = n.rightChild.checkBalance()
+	}
+	if leftLostBalanceNode != nil && rightLostBalanceNode != nil {
+		fmt.Printf("node %v left %v and right %v node both lost balance\n", n.value.k, leftLostBalanceNode.value.k, rightLostBalanceNode.value.k)
+		panic(fmt.Sprintf("node %v left %v and right %v node both lost balance\n", n.value.k, leftLostBalanceNode.value.k, rightLostBalanceNode.value.k))
+	} else if leftLostBalanceNode != nil {
+		return leftLostBalanceNode
+	} else if rightLostBalanceNode != nil {
+		return rightLostBalanceNode
+	}
+	if diff := n.leftHeight - n.rightHeight; diff < -1 || 1 < diff {
+		fmt.Printf("DEBUG: checkBalance node %v lost balance\n", n.value.k)
+		n.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+			fmt.Printf("DEBUG: range key: %v, value: %v, leftHeight = %v, rightHeight = %v\n", h.k, h.v, leftHeight, rightHeight)
+			return true
+		}, 0)
+		return n
+	}
+	return nil
 }
 
 type rotateType int
@@ -789,7 +815,39 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 			}
 		}
 	}
-	lostBalanceNode, _ := vNode.checkBalance(1)
+
+	// balance
+	fmt.Println()
+	fmt.Printf("root node %v rebalance\n", d.buckets[hashIndex].value.k)
+	d.buckets[hashIndex].rebalance()
+	d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+		return true
+	}, 0)
+
+	fmt.Println()
+	fmt.Printf("root node %v checkBalance\n", d.buckets[hashIndex].value.k)
+	lostBalanceNode := d.buckets[hashIndex].checkBalance()
+	if lostBalanceNode != nil {
+		lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+			fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+			return true
+		}, 0)
+	}
+
+	fmt.Println()
+	fmt.Printf("vNode %v checkAndUpdateBalance(1)\n", vNode.value.k)
+	vNodeLostBalanceNode := vNode.checkAndUpdateBalance(1)
+	if vNodeLostBalanceNode != nil {
+		vNodeLostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+			fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+			return true
+		}, 0)
+	}
+	if lostBalanceNode != vNodeLostBalanceNode {
+		panic(fmt.Sprintf("lostBalanceNode %v != vNodeLostBalanceNode %v, root node %v, vNode %v\n", lostBalanceNode.value.k, vNodeLostBalanceNode.value.k, d.buckets[hashIndex].value.k, vNode.value.k))
+	}
+
 	if lostBalanceNode != nil {
 		lostBalanceNodeParent := lostBalanceNode.parentNode
 		var newRootNode *avltNode
@@ -809,12 +867,12 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 		case RR:
 			newRootNode = lostBalanceNode.leftRotate()
 		default:
-			fmt.Printf("Error: lost balance node rotate type wrong\n")
+			fmt.Printf("Error: lost balance node %v rotate type wrong\n", lostBalanceNode)
 			lostBalanceNode.preOrderTraversal(func(h *HashValue) bool {
 				fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
 				return true
 			}, 0)
-			panic(lostBalanceNode)
+			panic(fmt.Sprintf("Error: lost balance node %v rotate type wrong\n", lostBalanceNode))
 		}
 
 		if lostBalanceNodeParent == nil {
@@ -829,7 +887,7 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 				lostBalanceNodeParent.rightChild.parentNode = lostBalanceNodeParent
 			} else {
 				fmt.Printf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k)
-				panic(lostBalanceNode)
+				panic(fmt.Sprintf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k))
 			}
 		}
 	}
@@ -847,8 +905,95 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	return true
 }
 
+// type 1 delete leaf
+//   7              7
+//  5 8  -> Del(1) 5 8
+// 1 6 9            6 9
+// type 3 delete node only has right tree
+//   7               7
+//  5 8  -> Del(8)  5 9
+// 1 6 9           1 6
+// type 4 delete node has both left and right tree
+//   7               7
+//  5 8  -> Del(5)  6 8
+// 1 6 9           1   9
 func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
-	return 0, false
+	if d.buckets[hashIndex] == nil {
+		return 0, true
+	} else {
+		fmt.Println()
+		fmt.Printf("Before Delete %v preOrder\n", key)
+		d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+			fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+			return true
+		}, 0)
+		var parentNode *avltNode
+		node := d.buckets[hashIndex]
+		for {
+			if key < node.value.k {
+				if node.leftChild == nil {
+					return 0, true
+				} else {
+					parentNode = node
+					node = node.leftChild
+				}
+			} else if node.value.k < key {
+				if node.rightChild == nil {
+					return 0, true
+				} else {
+					parentNode = node
+					node = node.rightChild
+				}
+			} else {
+				value, deleteNode := node.value.v, node
+				var newNode *avltNode
+				leftChild := node.leftChild
+				rightChild := node.rightChild
+				minRightNodeParentNode := node
+				for node = node.rightChild; node != nil && node.leftChild != nil; minRightNodeParentNode, node = node, node.leftChild {
+				}
+				if node == nil { // 单左链表
+					newNode = leftChild
+				} else if minRightNodeParentNode == deleteNode { // 单右链表
+					newNode = deleteNode.rightChild
+					newNode.leftChild = leftChild
+				} else if minRightNodeParentNode != node {
+					minRightNodeParentNode.leftChild = node.rightChild
+					node.leftChild = leftChild
+					node.rightChild = rightChild
+					newNode = node
+				} else {
+					newNode = node.rightChild
+				}
+
+				if parentNode == nil {
+					d.buckets[hashIndex] = newNode
+				} else if parentNode.leftChild == deleteNode {
+					parentNode.leftChild = newNode
+				} else if parentNode.rightChild == deleteNode {
+					parentNode.rightChild = newNode
+				} else {
+					// TODO: error
+					return 0, false
+				}
+
+				deleteNode.leftChild = nil
+				deleteNode.rightChild = nil
+
+				if d.buckets[hashIndex] != nil {
+					fmt.Printf("After Delete %v preOrder\n", key)
+					d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+						fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+						return true
+					}, 0)
+				}
+
+				// balance
+
+				return value, true
+			}
+		}
+	}
 }
 
 func (d *avltHashMapData) Range(op func(*HashValue) bool) {
@@ -973,9 +1118,10 @@ func WithHashMapHashFunc(f func(int, uint) int) HashMapOption {
 }
 
 func main() {
-	for index := 0; index != 1; index++ {
+	seed := time.Now().UnixNano()
+	rand.Seed(seed)
+	for index := 0; index != 100000; index++ {
 		fmt.Println()
-		rand.Seed(time.Now().UnixNano())
 		keyValueMap := make(map[int]int)
 		for index := 0; index != DEFAULT_HASH_MAP_SIZE>>7; index++ {
 			for {
@@ -989,14 +1135,7 @@ func main() {
 		}
 
 		// keyValueMap = map[int]int{
-		// 	27:  0,
-		// 	283: 1,
-		// 	379: 2,
-		// 	767: 3,
-		// 	4:   4,
-		// 	463: 5,
-		// 	930: 6,
-		// 	444: 7,
+		// 	169: 3, 346: 4, 475: 6, 655: 5, 664: 1, 769: 2, 941: 7, 984: 0,
 		// }
 
 		// hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
@@ -1009,40 +1148,67 @@ func main() {
 		// hashMapTest(keyValueMap, WithHashMapData(&bstHashMapData{
 		// 	buckets: make([]*bstNode, DEFAULT_HASH_MAP_SIZE>>10),
 		// }))
-		hashMapTest(keyValueMap, WithHashMapData(&avltHashMapData{
+		hashMapTest(seed, index, keyValueMap, WithHashMapData(&avltHashMapData{
 			buckets: make([]*avltNode, DEFAULT_HASH_MAP_SIZE>>10),
 		}))
 	}
 }
 
 type debugData struct {
-	kvMap       map[int]int
-	setSlice    []int
-	delSlice    []int
-	dataPreview strings.Builder
+	seed      int64
+	inex      int
+	kvMap     map[int]int
+	setSlice  []int
+	delSlice  []int
+	panicInfo strings.Builder
 }
 
 func (d debugData) outputFile() {
-	t := time.Now().UnixNano()
-	outputFile, openError := os.Create(fmt.Sprintf("%v.log", t))
+	outputFile, openError := os.Create(fmt.Sprintf("%v-%v.log", d.seed, d.inex))
 	if openError != nil {
 		fmt.Printf("Error: open file occurs error: %v\n", openError)
 		return
 	}
-	outputFile.WriteString(fmt.Sprintf("key value map: %v\n", d.kvMap))
-	outputFile.WriteString(fmt.Sprintf("set slice: %v\n", d.setSlice))
-	outputFile.WriteString(fmt.Sprintf("del slice: %v\n", d.delSlice))
+	outputFile.WriteString(fmt.Sprintf("key value map: %v\n", func() string {
+		var mapStringBuilder strings.Builder
+		for k, v := range d.kvMap {
+			mapStringBuilder.WriteString(fmt.Sprintf("%v", k))
+			mapStringBuilder.WriteString(":")
+			mapStringBuilder.WriteString(fmt.Sprintf("%v", v))
+			mapStringBuilder.WriteString(",")
+		}
+		return mapStringBuilder.String()
+	}()))
+	outputFile.WriteString(fmt.Sprintf("set slice: %v\n", func() string {
+		var mapStringBuilder strings.Builder
+		for _, k := range d.setSlice {
+			mapStringBuilder.WriteString(fmt.Sprintf("%v,", k))
+		}
+		return mapStringBuilder.String()
+	}()))
+	outputFile.WriteString(fmt.Sprintf("del slice: %v\n", func() string {
+		var mapStringBuilder strings.Builder
+		for _, k := range d.delSlice {
+			mapStringBuilder.WriteString(fmt.Sprintf("%v,", k))
+		}
+		return mapStringBuilder.String()
+	}()))
+	outputFile.WriteString(d.panicInfo.String())
 	outputFile.Close()
 }
 
-func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
+func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...HashMapOption) {
 	testHashMap := MakeHashMap(options...)
 
-	debugData := debugData{}
-	debugData.kvMap = keyValueMap
+	debugData := debugData{
+		seed:  seed,
+		inex:  index,
+		kvMap: keyValueMap,
+	}
 
 	defer func() {
 		if err := recover(); err != nil {
+			debugData.panicInfo.WriteString(fmt.Sprintf("panic: %v", err))
 			debugData.outputFile()
 		}
 	}()
@@ -1058,23 +1224,26 @@ func hashMapTest(keyValueMap map[int]int, options ...HashMapOption) {
 			// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
 			// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
 		}
+		fmt.Println()
 	}
 
-	// insertKeySlice := []int{4, 463, 930, 444, 27, 283, 379, 767}
+	// insertKeySlice := []int{769, 169, 346, 655, 475}
 	// for _, key := range insertKeySlice {
 	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
+	// 	debugData.setSlice = append(debugData.setSlice, key)
 	// 	if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
 	// 		fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
 	// 	} else {
 	// 		// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
 	// 		// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
 	// 	}
+	// 	fmt.Println()
 	// }
 
-	testHashMap.Range(func(k, v int) bool {
-		fmt.Printf("range key: %v, value: %v\n", k, v)
-		return true
-	})
+	// testHashMap.Range(func(k, v int) bool {
+	// 	fmt.Printf("range key: %v, value: %v\n", k, v)
+	// 	return true
+	// })
 
 	// for key, value := range keyValueMap {
 	// 	if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
