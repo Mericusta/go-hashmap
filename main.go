@@ -660,7 +660,28 @@ const (
 	RR
 )
 
-func (n *avltNode) getRotateType(childNode *avltNode) rotateType {
+func (n *avltNode) getRotateType() rotateType {
+	factor := n.getBalanceFactor()
+	if n.leftChild != nil {
+		if factor > 1 && n.leftChild.getBalanceFactor() >= 0 {
+			return LL
+		}
+		if factor > 1 && n.leftChild.getBalanceFactor() < 0 {
+			return LR
+		}
+	}
+	if n.rightChild != nil {
+		if factor < -1 && n.rightChild.getBalanceFactor() <= 0 {
+			return RR
+		}
+		if factor < -1 && n.rightChild.getBalanceFactor() > 0 {
+			return RL
+		}
+	}
+	return UNKNOWN
+}
+
+func (n *avltNode) getRotateTypeByTargetNode(childNode *avltNode) rotateType {
 	if n.leftChild != nil {
 		if n.leftChild.leftChild != nil {
 			if n.leftChild.leftChild == childNode || n.leftChild.leftChild.leftChild == childNode || n.leftChild.leftChild.rightChild == childNode {
@@ -711,6 +732,10 @@ func (n *avltNode) getHeight() int {
 		return n.rightHeight
 	}
 	return n.leftHeight
+}
+
+func (n *avltNode) getBalanceFactor() int {
+	return n.leftHeight - n.rightHeight
 }
 
 //  5         7
@@ -851,7 +876,11 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	if lostBalanceNode != nil {
 		lostBalanceNodeParent := lostBalanceNode.parentNode
 		var newRootNode *avltNode
-		rotateType := lostBalanceNode.getRotateType(vNode)
+		rotateType := lostBalanceNode.getRotateType()
+		rotateTypeByTargetNode := lostBalanceNode.getRotateTypeByTargetNode(vNode)
+		if rotateType != rotateTypeByTargetNode {
+			panic(fmt.Sprintf("lostBalanceNode %v getRotateType() %v != getRotateTypeByTargetNode(%v) %v", lostBalanceNode.value.k, vNode.value.k, rotateType, rotateTypeByTargetNode))
+		}
 		fmt.Printf("avl-tree need change to keep balance, rotate type %v\n", rotateType)
 		switch rotateType {
 		case LR:
@@ -966,15 +995,18 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 					newNode = node.rightChild
 				}
 
+				var checkNode *avltNode
 				if parentNode == nil {
 					d.buckets[hashIndex] = newNode
+					checkNode = d.buckets[hashIndex]
 				} else if parentNode.leftChild == deleteNode {
 					parentNode.leftChild = newNode
+					checkNode = parentNode
 				} else if parentNode.rightChild == deleteNode {
 					parentNode.rightChild = newNode
+					checkNode = parentNode
 				} else {
-					// TODO: error
-					return 0, false
+					panic(fmt.Sprintf("new node %v does has parent node %v but parent node not has new node\n", newNode.value.k, parentNode.value.k))
 				}
 
 				deleteNode.leftChild = nil
@@ -989,6 +1021,67 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 				}
 
 				// balance
+				fmt.Println()
+				fmt.Printf("check node %v rebalance\n", checkNode.value.k)
+				checkNode.rebalance()
+				checkNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+					fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+					return true
+				}, 0)
+
+				fmt.Println()
+				fmt.Printf("check node %v checkBalance\n", checkNode.value.k)
+				lostBalanceNode := checkNode.checkBalance()
+				if lostBalanceNode != nil {
+					lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+						fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+						return true
+					}, 0)
+				}
+
+				if lostBalanceNode != nil {
+					lostBalanceNodeParent := lostBalanceNode.parentNode
+					var newRootNode *avltNode
+					rotateType := lostBalanceNode.getRotateType()
+					fmt.Printf("avl-tree need change to keep balance, rotate type %v\n", rotateType)
+					switch rotateType {
+					case LR:
+						lostBalanceNode.setLeftChild(lostBalanceNode.leftChild.leftRotate())
+						lostBalanceNode.leftChild.parentNode = lostBalanceNode
+						fallthrough
+					case LL:
+						newRootNode = lostBalanceNode.rightRotate()
+					case RL:
+						lostBalanceNode.setRightChild(lostBalanceNode.rightChild.rightRotate())
+						lostBalanceNode.rightChild.parentNode = lostBalanceNode
+						fallthrough
+					case RR:
+						newRootNode = lostBalanceNode.leftRotate()
+					default:
+						fmt.Printf("Error: lost balance node %v rotate type wrong\n", lostBalanceNode)
+						lostBalanceNode.preOrderTraversal(func(h *HashValue) bool {
+							fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
+							return true
+						}, 0)
+						panic(fmt.Sprintf("Error: lost balance node %v rotate type wrong\n", lostBalanceNode))
+					}
+
+					if lostBalanceNodeParent == nil {
+						d.buckets[hashIndex] = newRootNode
+						d.buckets[hashIndex].parentNode = nil
+					} else {
+						if lostBalanceNodeParent.leftChild == lostBalanceNode {
+							lostBalanceNodeParent.setLeftChild(newRootNode)
+							lostBalanceNodeParent.leftChild.parentNode = lostBalanceNodeParent
+						} else if lostBalanceNodeParent.rightChild == lostBalanceNode {
+							lostBalanceNodeParent.setRightChild(newRootNode)
+							lostBalanceNodeParent.rightChild.parentNode = lostBalanceNodeParent
+						} else {
+							fmt.Printf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k)
+							panic(fmt.Sprintf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k))
+						}
+					}
+				}
 
 				return value, true
 			}
