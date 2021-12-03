@@ -588,7 +588,7 @@ func (n *avltNode) inOrderTraversal(op func(*HashValue) bool) bool {
 	return true
 }
 
-// TODO: just check, no update
+// TODO: just check, no update -> rebalance just update & checkBalance just check
 func (n *avltNode) checkAndUpdateBalance(height int) *avltNode {
 	if n.parentNode == nil {
 		return nil
@@ -640,11 +640,11 @@ func (n *avltNode) checkBalance() *avltNode {
 		return rightLostBalanceNode
 	}
 	if diff := n.leftHeight - n.rightHeight; diff < -1 || 1 < diff {
-		fmt.Printf("DEBUG: checkBalance node %v lost balance\n", n.value.k)
-		n.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
-			fmt.Printf("DEBUG: range key: %v, value: %v, leftHeight = %v, rightHeight = %v\n", h.k, h.v, leftHeight, rightHeight)
-			return true
-		}, 0)
+		// fmt.Printf("DEBUG: checkBalance node %v lost balance\n", n.value.k)
+		// n.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+		// 	fmt.Printf("DEBUG: range key: %v, value: %v, leftHeight = %v, rightHeight = %v\n", h.k, h.v, leftHeight, rightHeight)
+		// 	return true
+		// }, 0)
 		return n
 	}
 	return nil
@@ -712,6 +712,7 @@ func (n *avltNode) getRotateTypeByTargetNode(childNode *avltNode) rotateType {
 func (n *avltNode) setLeftChild(childNode *avltNode) {
 	n.leftChild = childNode
 	if childNode != nil {
+		childNode.parentNode = n
 		n.leftHeight = childNode.getHeight() + 1
 	} else {
 		n.leftHeight = 0
@@ -721,6 +722,7 @@ func (n *avltNode) setLeftChild(childNode *avltNode) {
 func (n *avltNode) setRightChild(childNode *avltNode) {
 	n.rightChild = childNode
 	if childNode != nil {
+		childNode.parentNode = n
 		n.rightHeight = childNode.getHeight() + 1
 	} else {
 		n.rightHeight = 0
@@ -746,11 +748,7 @@ func (n *avltNode) leftRotate() *avltNode {
 	newRootNode := n.rightChild
 	if newRootNode != nil {
 		n.setRightChild(newRootNode.leftChild)
-		if newRootNode.leftChild != nil {
-			newRootNode.leftChild.parentNode = n
-		}
 		newRootNode.setLeftChild(n)
-		n.parentNode = newRootNode
 	} else {
 		n.setRightChild(nil)
 	}
@@ -765,11 +763,7 @@ func (n *avltNode) rightRotate() *avltNode {
 	newRootNode := n.leftChild
 	if newRootNode != nil {
 		n.setLeftChild(newRootNode.rightChild)
-		if newRootNode.rightChild != nil {
-			newRootNode.rightChild.parentNode = n
-		}
 		newRootNode.setRightChild(n)
-		n.parentNode = newRootNode
 	} else {
 		n.setLeftChild(nil)
 	}
@@ -842,56 +836,54 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	}
 
 	// balance
-	fmt.Println()
-	fmt.Printf("root node %v rebalance\n", d.buckets[hashIndex].value.k)
+	// fmt.Println()
+	// fmt.Printf("root node %v rebalance\n", d.buckets[hashIndex].value.k)
 	d.buckets[hashIndex].rebalance()
-	d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
-		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
-		return true
-	}, 0)
+	// d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+	// 	fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+	// 	return true
+	// }, 0)
 
-	fmt.Println()
-	fmt.Printf("root node %v checkBalance\n", d.buckets[hashIndex].value.k)
+	// fmt.Println()
+	// fmt.Printf("root node %v checkBalance\n", d.buckets[hashIndex].value.k)
 	lostBalanceNode := d.buckets[hashIndex].checkBalance()
-	if lostBalanceNode != nil {
-		lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
-			fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
-			return true
-		}, 0)
-	}
+	// if lostBalanceNode != nil {
+	// 	lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+	// 		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+	// 		return true
+	// 	}, 0)
+	// }
 
-	fmt.Println()
-	fmt.Printf("vNode %v checkAndUpdateBalance(1)\n", vNode.value.k)
-	vNodeLostBalanceNode := vNode.checkAndUpdateBalance(1)
-	if vNodeLostBalanceNode != nil {
-		vNodeLostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
-			fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
-			return true
-		}, 0)
-	}
-	if lostBalanceNode != vNodeLostBalanceNode {
-		panic(fmt.Sprintf("lostBalanceNode %v != vNodeLostBalanceNode %v, root node %v, vNode %v\n", lostBalanceNode.value.k, vNodeLostBalanceNode.value.k, d.buckets[hashIndex].value.k, vNode.value.k))
-	}
+	// fmt.Println()
+	// fmt.Printf("vNode %v checkAndUpdateBalance(1)\n", vNode.value.k)
+	// vNodeLostBalanceNode := vNode.checkAndUpdateBalance(1)
+	// if vNodeLostBalanceNode != nil {
+	// 	vNodeLostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+	// 		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+	// 		return true
+	// 	}, 0)
+	// }
+	// if lostBalanceNode != vNodeLostBalanceNode {
+	// 	panic(fmt.Sprintf("lostBalanceNode %v != vNodeLostBalanceNode %v, root node %v, vNode %v\n", lostBalanceNode.value.k, vNodeLostBalanceNode.value.k, d.buckets[hashIndex].value.k, vNode.value.k))
+	// }
 
 	if lostBalanceNode != nil {
 		lostBalanceNodeParent := lostBalanceNode.parentNode
 		var newRootNode *avltNode
 		rotateType := lostBalanceNode.getRotateType()
-		rotateTypeByTargetNode := lostBalanceNode.getRotateTypeByTargetNode(vNode)
-		if rotateType != rotateTypeByTargetNode {
-			panic(fmt.Sprintf("lostBalanceNode %v getRotateType() %v != getRotateTypeByTargetNode(%v) %v", lostBalanceNode.value.k, vNode.value.k, rotateType, rotateTypeByTargetNode))
-		}
-		fmt.Printf("avl-tree need change to keep balance, rotate type %v\n", rotateType)
+		// rotateTypeByTargetNode := lostBalanceNode.getRotateTypeByTargetNode(vNode)
+		// if rotateType != rotateTypeByTargetNode {
+		// 	panic(fmt.Sprintf("lostBalanceNode %v getRotateType() %v != getRotateTypeByTargetNode(%v) %v", lostBalanceNode.value.k, vNode.value.k, rotateType, rotateTypeByTargetNode))
+		// }
+		// fmt.Printf("avl-tree need change to keep balance, rotate type %v\n", rotateType)
 		switch rotateType {
 		case LR:
 			lostBalanceNode.setLeftChild(lostBalanceNode.leftChild.leftRotate())
-			lostBalanceNode.leftChild.parentNode = lostBalanceNode
 			fallthrough
 		case LL:
 			newRootNode = lostBalanceNode.rightRotate()
 		case RL:
 			lostBalanceNode.setRightChild(lostBalanceNode.rightChild.rightRotate())
-			lostBalanceNode.rightChild.parentNode = lostBalanceNode
 			fallthrough
 		case RR:
 			newRootNode = lostBalanceNode.leftRotate()
@@ -910,10 +902,8 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 		} else {
 			if lostBalanceNodeParent.leftChild == lostBalanceNode {
 				lostBalanceNodeParent.setLeftChild(newRootNode)
-				lostBalanceNodeParent.leftChild.parentNode = lostBalanceNodeParent
 			} else if lostBalanceNodeParent.rightChild == lostBalanceNode {
 				lostBalanceNodeParent.setRightChild(newRootNode)
-				lostBalanceNodeParent.rightChild.parentNode = lostBalanceNodeParent
 			} else {
 				fmt.Printf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k)
 				panic(fmt.Sprintf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k))
@@ -921,15 +911,10 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 		}
 	}
 
-	// d.buckets[hashIndex].preOrderTraversal(func(h *HashValue, leftHeight, rightHeight int) bool {
+	// d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
 	// 	fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
 	// 	return true
 	// }, 0)
-
-	d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
-		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
-		return true
-	}, 0)
 
 	return true
 }
@@ -950,12 +935,12 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 	if d.buckets[hashIndex] == nil {
 		return 0, true
 	} else {
-		fmt.Println()
-		fmt.Printf("Before Delete %v preOrder\n", key)
-		d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
-			fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
-			return true
-		}, 0)
+		// fmt.Println()
+		// fmt.Printf("Before Delete %v preOrder\n", key)
+		// d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+		// 	fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+		// 	return true
+		// }, 0)
 		var parentNode *avltNode
 		node := d.buckets[hashIndex]
 		for {
@@ -985,11 +970,11 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 					newNode = leftChild
 				} else if minRightNodeParentNode == deleteNode { // 单右链表
 					newNode = deleteNode.rightChild
-					newNode.leftChild = leftChild
+					newNode.setLeftChild(leftChild)
 				} else if minRightNodeParentNode != node {
-					minRightNodeParentNode.leftChild = node.rightChild
-					node.leftChild = leftChild
-					node.rightChild = rightChild
+					minRightNodeParentNode.setLeftChild(node.rightChild)
+					node.setLeftChild(leftChild)
+					node.setRightChild(rightChild)
 					newNode = node
 				} else {
 					newNode = node.rightChild
@@ -998,12 +983,16 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 				var checkNode *avltNode
 				if parentNode == nil {
 					d.buckets[hashIndex] = newNode
+					if newNode == nil {
+						return value, true
+					}
+					newNode.parentNode = nil
 					checkNode = d.buckets[hashIndex]
 				} else if parentNode.leftChild == deleteNode {
-					parentNode.leftChild = newNode
+					parentNode.setLeftChild(newNode)
 					checkNode = parentNode
 				} else if parentNode.rightChild == deleteNode {
-					parentNode.rightChild = newNode
+					parentNode.setRightChild(newNode)
 					checkNode = parentNode
 				} else {
 					panic(fmt.Sprintf("new node %v does has parent node %v but parent node not has new node\n", newNode.value.k, parentNode.value.k))
@@ -1021,39 +1010,37 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 				}
 
 				// balance
-				fmt.Println()
-				fmt.Printf("check node %v rebalance\n", checkNode.value.k)
+				// fmt.Println()
+				// fmt.Printf("check node %v rebalance\n", checkNode.value.k)
 				checkNode.rebalance()
-				checkNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
-					fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
-					return true
-				}, 0)
+				// checkNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+				// 	fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+				// 	return true
+				// }, 0)
 
-				fmt.Println()
-				fmt.Printf("check node %v checkBalance\n", checkNode.value.k)
+				// fmt.Println()
+				// fmt.Printf("check node %v checkBalance\n", checkNode.value.k)
 				lostBalanceNode := checkNode.checkBalance()
-				if lostBalanceNode != nil {
-					lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
-						fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
-						return true
-					}, 0)
-				}
+				// if lostBalanceNode != nil {
+				// 	lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+				// 		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+				// 		return true
+				// 	}, 0)
+				// }
 
 				if lostBalanceNode != nil {
 					lostBalanceNodeParent := lostBalanceNode.parentNode
 					var newRootNode *avltNode
 					rotateType := lostBalanceNode.getRotateType()
-					fmt.Printf("avl-tree need change to keep balance, rotate type %v\n", rotateType)
+					// fmt.Printf("avl-tree need change to keep balance, rotate type %v\n", rotateType)
 					switch rotateType {
 					case LR:
 						lostBalanceNode.setLeftChild(lostBalanceNode.leftChild.leftRotate())
-						lostBalanceNode.leftChild.parentNode = lostBalanceNode
 						fallthrough
 					case LL:
 						newRootNode = lostBalanceNode.rightRotate()
 					case RL:
 						lostBalanceNode.setRightChild(lostBalanceNode.rightChild.rightRotate())
-						lostBalanceNode.rightChild.parentNode = lostBalanceNode
 						fallthrough
 					case RR:
 						newRootNode = lostBalanceNode.leftRotate()
@@ -1070,15 +1057,13 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 						d.buckets[hashIndex] = newRootNode
 						d.buckets[hashIndex].parentNode = nil
 					} else {
-						if lostBalanceNodeParent.leftChild == lostBalanceNode {
-							lostBalanceNodeParent.setLeftChild(newRootNode)
-							lostBalanceNodeParent.leftChild.parentNode = lostBalanceNodeParent
-						} else if lostBalanceNodeParent.rightChild == lostBalanceNode {
-							lostBalanceNodeParent.setRightChild(newRootNode)
-							lostBalanceNodeParent.rightChild.parentNode = lostBalanceNodeParent
+						if parentNode.leftChild == newNode {
+							parentNode.setLeftChild(newRootNode)
+						} else if parentNode.rightChild == newNode {
+							parentNode.setRightChild(newRootNode)
 						} else {
-							fmt.Printf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k)
-							panic(fmt.Sprintf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, lostBalanceNodeParent.value.k))
+							fmt.Printf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, parentNode.value.k)
+							panic(fmt.Sprintf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, parentNode.value.k))
 						}
 					}
 				}
@@ -1092,11 +1077,11 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 func (d *avltHashMapData) Range(op func(*HashValue) bool) {
 	for _, bucket := range d.buckets {
 		if bucket != nil {
-			fmt.Println()
-			fmt.Printf("inOrderTraversal\n")
-			if !bucket.inOrderTraversal(op) {
-				return
-			}
+			// fmt.Println()
+			// fmt.Printf("inOrderTraversal\n")
+			// if !bucket.inOrderTraversal(op) {
+			// 	return
+			// }
 			fmt.Println()
 			fmt.Printf("preOrderTraversal\n")
 			if !bucket.preOrderTraversal(op, 0) {
@@ -1213,7 +1198,7 @@ func WithHashMapHashFunc(f func(int, uint) int) HashMapOption {
 func main() {
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
-	for index := 0; index != 100000; index++ {
+	for index := 0; index != 1; index++ {
 		fmt.Println()
 		keyValueMap := make(map[int]int)
 		for index := 0; index != DEFAULT_HASH_MAP_SIZE>>7; index++ {
@@ -1227,9 +1212,9 @@ func main() {
 			}
 		}
 
-		// keyValueMap = map[int]int{
-		// 	169: 3, 346: 4, 475: 6, 655: 5, 664: 1, 769: 2, 941: 7, 984: 0,
-		// }
+		keyValueMap = map[int]int{
+			459: 0, 844: 1, 36: 2, 593: 3, 572: 4, 948: 5, 998: 6, 266: 7,
+		}
 
 		// hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
 		// hashMapTest(keyValueMap, WithHashMapData(&sdhHashMapData{
@@ -1300,32 +1285,19 @@ func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...Hash
 	}
 
 	defer func() {
-		if err := recover(); err != nil {
-			debugData.panicInfo.WriteString(fmt.Sprintf("panic: %v", err))
-			debugData.outputFile()
-		}
+		// if err := recover(); err != nil {
+		// 	debugData.panicInfo.WriteString(fmt.Sprintf("panic: %v", err))
+		// 	debugData.outputFile()
+		// }
 	}()
 
 	fmt.Println()
 
-	for key, value := range keyValueMap {
-		fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
-		debugData.setSlice = append(debugData.setSlice, key)
-		if ok := testHashMap.Set(key, value); !ok {
-			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
-		} else {
-			// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
-			// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
-		}
-		fmt.Println()
-	}
-
-	// insertKeySlice := []int{769, 169, 346, 655, 475}
-	// for _, key := range insertKeySlice {
-	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
+	// for key, value := range keyValueMap {
+	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
 	// 	debugData.setSlice = append(debugData.setSlice, key)
-	// 	if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
-	// 		fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
+	// 	if ok := testHashMap.Set(key, value); !ok {
+	// 		fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
 	// 	} else {
 	// 		// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
 	// 		// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
@@ -1333,52 +1305,58 @@ func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...Hash
 	// 	fmt.Println()
 	// }
 
-	// testHashMap.Range(func(k, v int) bool {
-	// 	fmt.Printf("range key: %v, value: %v\n", k, v)
-	// 	return true
-	// })
+	insertKeySlice := []int{998, 266, 459, 844, 36, 593, 572, 948}
+	for _, key := range insertKeySlice {
+		fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
+		debugData.setSlice = append(debugData.setSlice, key)
+		if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
+			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
+		} else {
+			// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
+			// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
+		}
+		fmt.Println()
+	}
 
-	// for key, value := range keyValueMap {
-	// 	if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
-	// 		fmt.Printf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-	// 	} else {
-	// 		// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
-	// 	}
-	// }
+	fmt.Printf("after testHashMap.Set\n")
+	testHashMap.Range(func(k, v int) bool {
+		fmt.Printf("range key: %v, value: %v\n", k, v)
+		return true
+	})
+
+	for key, value := range keyValueMap {
+		if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
+			fmt.Printf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+		} else {
+			// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+		}
+	}
 
 	// for key, value := range keyValueMap {
 	// 	fmt.Printf("testHashMap.Del(%v)\n", key)
 	// 	debugData.delSlice = append(debugData.delSlice, key)
 	// 	if _value, hasKey := testHashMap.Del(key); !hasKey || _value != value {
 	// 		fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-	// 		t := time.Now().UnixNano()
-	// 		outputFile, openError := os.Create(fmt.Sprintf("%v.log", t))
-	// 		if openError != nil {
-	// 			fmt.Printf("Error: open file occurs error: %v\n", openError)
-	// 			return
-	// 		}
-	// 		outputFile.WriteString(fmt.Sprintf("key value map: %v\n", debugData.kvMap))
-	// 		outputFile.WriteString(fmt.Sprintf("set slice: %v\n", debugData.setSlice))
-	// 		// outputFile.Write()
-	// 		outputFile.WriteString(fmt.Sprintf("del slice: %v\n", debugData.delSlice))
+	// 		debugData.outputFile()
+	// 		return
 	// 	} else {
 	// 		// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
 	// 		// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
 	// 	}
 	// }
 
-	// for _, key := range []int{875, 974, 554, 44, 834, 296, 458, 3} {
-	// 	fmt.Printf("testHashMap.Del(%v)\n", key)
-	// 	if _value, hasKey := testHashMap.Del(key); !hasKey || _value != keyValueMap[key] {
-	// 		fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, keyValueMap[key])
-	// 	} else {
-	// 		// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
-	// 		// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
-	// 	}
-	// }
+	for _, key := range []int{36, 593, 572, 948} {
+		fmt.Printf("testHashMap.Del(%v)\n", key)
+		if _value, hasKey := testHashMap.Del(key); !hasKey || _value != keyValueMap[key] {
+			fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, keyValueMap[key])
+		} else {
+			// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
+			// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
+		}
+	}
 
-	// testHashMap.Range(func(k, v int) bool {
-	// 	fmt.Printf("key: %v, value: %v\n", k, v)
-	// 	return true
-	// })
+	testHashMap.Range(func(k, v int) bool {
+		fmt.Printf("key: %v, value: %v\n", k, v)
+		return true
+	})
 }
