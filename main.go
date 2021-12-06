@@ -589,7 +589,8 @@ func (n *avltNode) inOrderTraversal(op func(*HashValue) bool) bool {
 }
 
 // TODO: just check, no update -> rebalance just update & checkBalance just check
-func (n *avltNode) checkAndUpdateBalance(height int) *avltNode {
+// checkAndRebalance 向上检查平衡并且再平衡
+func (n *avltNode) checkAndRebalance(height int) *avltNode {
 	if n.parentNode == nil {
 		return nil
 	}
@@ -606,9 +607,10 @@ func (n *avltNode) checkAndUpdateBalance(height int) *avltNode {
 		}, 0)
 		return n.parentNode
 	}
-	return n.parentNode.checkAndUpdateBalance(height + 1)
+	return n.parentNode.checkAndRebalance(height + 1)
 }
 
+// rebalance 向下再平衡
 func (n *avltNode) rebalance() int {
 	if n.leftChild != nil {
 		n.leftHeight = n.leftChild.rebalance() + 1
@@ -623,6 +625,7 @@ func (n *avltNode) rebalance() int {
 	return n.getHeight()
 }
 
+// checkBalance 向下检查平衡
 func (n *avltNode) checkBalance() *avltNode {
 	var leftLostBalanceNode, rightLostBalanceNode *avltNode
 	if n.leftChild != nil {
@@ -838,7 +841,7 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	// balance
 	// fmt.Println()
 	// fmt.Printf("root node %v rebalance\n", d.buckets[hashIndex].value.k)
-	d.buckets[hashIndex].rebalance()
+	// d.buckets[hashIndex].rebalance() // 自根节点向下再平衡
 	// d.buckets[hashIndex].preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
 	// 	fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
 	// 	return true
@@ -846,7 +849,7 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 
 	// fmt.Println()
 	// fmt.Printf("root node %v checkBalance\n", d.buckets[hashIndex].value.k)
-	lostBalanceNode := d.buckets[hashIndex].checkBalance()
+	// lostBalanceNode := d.buckets[hashIndex].checkBalance() // 自根节点向下检查平衡
 	// if lostBalanceNode != nil {
 	// 	lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
 	// 		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
@@ -855,16 +858,16 @@ func (d *avltHashMapData) Set(hashIndex int, hashValue *HashValue) bool {
 	// }
 
 	// fmt.Println()
-	// fmt.Printf("vNode %v checkAndUpdateBalance(1)\n", vNode.value.k)
-	// vNodeLostBalanceNode := vNode.checkAndUpdateBalance(1)
-	// if vNodeLostBalanceNode != nil {
-	// 	vNodeLostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+	// fmt.Printf("vNode %v checkAndRebalance(1)\n", vNode.value.k)
+	lostBalanceNode := vNode.checkAndRebalance(1) // 自插入节点向上检查平衡并且再平衡
+	// if lostBalanceNode != nil {
+	// 	lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
 	// 		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
 	// 		return true
 	// 	}, 0)
 	// }
-	// if lostBalanceNode != vNodeLostBalanceNode {
-	// 	panic(fmt.Sprintf("lostBalanceNode %v != vNodeLostBalanceNode %v, root node %v, vNode %v\n", lostBalanceNode.value.k, vNodeLostBalanceNode.value.k, d.buckets[hashIndex].value.k, vNode.value.k))
+	// if lostBalanceNode != lostBalanceNode {
+	// 	panic(fmt.Sprintf("lostBalanceNode %v != lostBalanceNode %v, root node %v, vNode %v\n", lostBalanceNode.value.k, lostBalanceNode.value.k, d.buckets[hashIndex].value.k, vNode.value.k))
 	// }
 
 	if lostBalanceNode != nil {
@@ -1011,22 +1014,37 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 
 				// balance
 				// fmt.Println()
-				// fmt.Printf("check node %v rebalance\n", checkNode.value.k)
-				checkNode.rebalance()
+				// fmt.Printf("node %v rebalance\n", checkNode.value.k)
+				checkNode.rebalance() // 自变更节点向下再平衡
 				// checkNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
 				// 	fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
 				// 	return true
 				// }, 0)
 
 				// fmt.Println()
-				// fmt.Printf("check node %v checkBalance\n", checkNode.value.k)
-				lostBalanceNode := checkNode.checkBalance()
+				// fmt.Printf("node %v checkBalance\n", checkNode.value.k)
+				lostBalanceNode := checkNode.checkBalance() // 自变更节点向下检查平衡
 				// if lostBalanceNode != nil {
 				// 	lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
 				// 		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
 				// 		return true
 				// 	}, 0)
 				// }
+
+				if lostBalanceNode == nil {
+					// fmt.Println()
+					// fmt.Printf("node %v checkAndRebalance(1)\n", vNode.value.k)
+					lostBalanceNode = checkNode.checkAndRebalance(checkNode.getHeight() + 1) // 自变更节点向上检查平衡并且再平衡
+					// if lostBalanceNode != nil {
+					// 	lostBalanceNode.preOrderTraversalWithHeight(func(h *HashValue, leftHeight, rightHeight int) bool {
+					// 		fmt.Printf("DEBUG: range key: %v, value: %v, left height: %v, right height: %v\n", h.k, h.v, leftHeight, rightHeight)
+					// 		return true
+					// 	}, 0)
+					// }
+					// if lostBalanceNode != lostBalanceNode {
+					// 	panic(fmt.Sprintf("lostBalanceNode %v != lostBalanceNode %v, root node %v, vNode %v\n", lostBalanceNode.value.k, lostBalanceNode.value.k, d.buckets[hashIndex].value.k, vNode.value.k))
+					// }
+				}
 
 				if lostBalanceNode != nil {
 					lostBalanceNodeParent := lostBalanceNode.parentNode
@@ -1057,17 +1075,16 @@ func (d *avltHashMapData) Del(hashIndex, key int) (int, bool) {
 						d.buckets[hashIndex] = newRootNode
 						d.buckets[hashIndex].parentNode = nil
 					} else {
-						if parentNode.leftChild == newNode {
-							parentNode.setLeftChild(newRootNode)
-						} else if parentNode.rightChild == newNode {
-							parentNode.setRightChild(newRootNode)
+						if lostBalanceNodeParent.leftChild == lostBalanceNode {
+							lostBalanceNodeParent.setLeftChild(newRootNode)
+						} else if lostBalanceNodeParent.rightChild == lostBalanceNode {
+							lostBalanceNodeParent.setRightChild(newRootNode)
 						} else {
 							fmt.Printf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, parentNode.value.k)
 							panic(fmt.Sprintf("Error: lost balance node %v is not exists in its parent %v child\n", lostBalanceNode.value.k, parentNode.value.k))
 						}
 					}
 				}
-
 				return value, true
 			}
 		}
@@ -1195,10 +1212,18 @@ func WithHashMapHashFunc(f func(int, uint) int) HashMapOption {
 	}
 }
 
+var (
+	debugKeyValueMap = map[int]int{
+		493: 3, 760: 4, 476: 5, 560: 6, 785: 7, 76: 0, 288: 1, 280: 2,
+	}
+	debugSetSlice = []int{785, 76, 288, 280, 493, 760, 476, 560}
+	debugDelSlice = []int{760, 476, 560}
+)
+
 func main() {
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
-	for index := 0; index != 1; index++ {
+	for index := 0; index != 1000000; index++ {
 		fmt.Println()
 		keyValueMap := make(map[int]int)
 		for index := 0; index != DEFAULT_HASH_MAP_SIZE>>7; index++ {
@@ -1212,23 +1237,27 @@ func main() {
 			}
 		}
 
-		keyValueMap = map[int]int{
-			459: 0, 844: 1, 36: 2, 593: 3, 572: 4, 948: 5, 998: 6, 266: 7,
-		}
-
 		// hashMapTest(keyValueMap, WithHashMapSize(DEFAULT_HASH_MAP_SIZE>>9))
+
 		// hashMapTest(keyValueMap, WithHashMapData(&sdhHashMapData{
 		// 	array: make([]*HashValue, DEFAULT_HASH_MAP_SIZE>>9),
 		// }))
+
 		// hashMapTest(keyValueMap, WithHashMapData(&dllHashMapData{
 		// 	buckets: make([]*dllNode, DEFAULT_HASH_MAP_SIZE>>9),
 		// }))
+
 		// hashMapTest(keyValueMap, WithHashMapData(&bstHashMapData{
 		// 	buckets: make([]*bstNode, DEFAULT_HASH_MAP_SIZE>>10),
 		// }))
+
 		hashMapTest(seed, index, keyValueMap, WithHashMapData(&avltHashMapData{
 			buckets: make([]*avltNode, DEFAULT_HASH_MAP_SIZE>>10),
 		}))
+
+		// hashMapDebug(seed, index, debugKeyValueMap, WithHashMapData(&avltHashMapData{
+		// 	buckets: make([]*avltNode, DEFAULT_HASH_MAP_SIZE>>10),
+		// }))
 	}
 }
 
@@ -1275,6 +1304,59 @@ func (d debugData) outputFile() {
 	outputFile.Close()
 }
 
+func hashMapDebug(seed int64, index int, keyValueMap map[int]int, options ...HashMapOption) {
+	debugHashMap := MakeHashMap(options...)
+
+	debugData := debugData{
+		seed:  seed,
+		inex:  index,
+		kvMap: keyValueMap,
+	}
+
+	fmt.Println()
+
+	for _, key := range debugSetSlice {
+		fmt.Printf("debugHashMap.Set(%v, %v)\n", key, keyValueMap[key])
+		debugData.setSlice = append(debugData.setSlice, key)
+		if ok := debugHashMap.Set(key, keyValueMap[key]); !ok {
+			fmt.Printf("debugHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
+		} else {
+			// fmt.Printf("after debugHashMap.Set(%v, %v), debugHashMap load factor is %v\n", key, value, debugHashMap.GetLoadFactor(0))
+			// fmt.Printf("debugHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
+		}
+		fmt.Println()
+	}
+
+	fmt.Printf("after debugHashMap.Set\n")
+	debugHashMap.Range(func(k, v int) bool {
+		fmt.Printf("range key: %v, value: %v\n", k, v)
+		return true
+	})
+
+	for key, value := range keyValueMap {
+		if _value, hasKey := debugHashMap.Get(key); !hasKey || _value != value {
+			fmt.Printf("debugHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+		} else {
+			// fmt.Printf("debugHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+		}
+	}
+
+	for _, key := range debugDelSlice {
+		fmt.Printf("debugHashMap.Del(%v)\n", key)
+		if _value, hasKey := debugHashMap.Del(key); !hasKey || _value != keyValueMap[key] {
+			fmt.Printf("debugHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, keyValueMap[key])
+		} else {
+			// fmt.Printf("after Del, debugHashMap load factor is %v\n", debugHashMap.GetLoadFactor(0))
+			// fmt.Printf("debugHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
+		}
+	}
+
+	debugHashMap.Range(func(k, v int) bool {
+		fmt.Printf("key: %v, value: %v\n", k, v)
+		return true
+	})
+}
+
 func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...HashMapOption) {
 	testHashMap := MakeHashMap(options...)
 
@@ -1285,32 +1367,19 @@ func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...Hash
 	}
 
 	defer func() {
-		// if err := recover(); err != nil {
-		// 	debugData.panicInfo.WriteString(fmt.Sprintf("panic: %v", err))
-		// 	debugData.outputFile()
-		// }
+		if err := recover(); err != nil {
+			debugData.panicInfo.WriteString(fmt.Sprintf("panic: %v", err))
+			debugData.outputFile()
+		}
 	}()
 
 	fmt.Println()
 
-	// for key, value := range keyValueMap {
-	// 	fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
-	// 	debugData.setSlice = append(debugData.setSlice, key)
-	// 	if ok := testHashMap.Set(key, value); !ok {
-	// 		fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
-	// 	} else {
-	// 		// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
-	// 		// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
-	// 	}
-	// 	fmt.Println()
-	// }
-
-	insertKeySlice := []int{998, 266, 459, 844, 36, 593, 572, 948}
-	for _, key := range insertKeySlice {
-		fmt.Printf("testHashMap.Set(%v, %v)\n", key, keyValueMap[key])
+	for key, value := range keyValueMap {
+		fmt.Printf("testHashMap.Set(%v, %v)\n", key, value)
 		debugData.setSlice = append(debugData.setSlice, key)
-		if ok := testHashMap.Set(key, keyValueMap[key]); !ok {
-			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, keyValueMap[key])
+		if ok := testHashMap.Set(key, value); !ok {
+			fmt.Printf("testHashMap.Set(%v, %v) failed\n", key, value)
 		} else {
 			// fmt.Printf("after testHashMap.Set(%v, %v), testHashMap load factor is %v\n", key, value, testHashMap.GetLoadFactor(0))
 			// fmt.Printf("testHashMap.Set(%v, %v) at hash index %v success\n", key, value, hashIndex)
@@ -1332,23 +1401,13 @@ func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...Hash
 		}
 	}
 
-	// for key, value := range keyValueMap {
-	// 	fmt.Printf("testHashMap.Del(%v)\n", key)
-	// 	debugData.delSlice = append(debugData.delSlice, key)
-	// 	if _value, hasKey := testHashMap.Del(key); !hasKey || _value != value {
-	// 		fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-	// 		debugData.outputFile()
-	// 		return
-	// 	} else {
-	// 		// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
-	// 		// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
-	// 	}
-	// }
-
-	for _, key := range []int{36, 593, 572, 948} {
+	for key, value := range keyValueMap {
 		fmt.Printf("testHashMap.Del(%v)\n", key)
-		if _value, hasKey := testHashMap.Del(key); !hasKey || _value != keyValueMap[key] {
-			fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, keyValueMap[key])
+		debugData.delSlice = append(debugData.delSlice, key)
+		if _value, hasKey := testHashMap.Del(key); !hasKey || _value != value {
+			fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+			debugData.outputFile()
+			return
 		} else {
 			// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
 			// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
