@@ -1343,14 +1343,14 @@ func (d *tttHashMapData) Set(hashIndex int, insertHashValue *HashValue) bool {
 							// insert 1
 							// 2 -> 1,2
 							node.resetNodeValue(hashValue, nil, node.leftValue)
-							node.setLeftChild(leftChild)
-							node.setMiddleLeftChild(middleChild)
-							node.setMiddleRightChild(node.middleChild)
-							node.setMiddleChild(nil)
 						} else {
 							// insert 1
 							// 2,3 -> 1,2,3
 							node.resetNodeValue(hashValue, node.leftValue, node.rightValue)
+							node.setLeftChild(leftChild)
+							node.setMiddleLeftChild(middleChild)
+							node.setMiddleRightChild(node.middleChild)
+							node.setMiddleChild(nil)
 						}
 						goto SPLIT
 					}
@@ -1644,9 +1644,25 @@ func (d debugData) outputFile() {
 
 var (
 	debugKeyValueMap = map[int]int{
-		8: 1, 6: 2, 4: 3, 7: 4, 12: 5, 9: 6, 11: 7, 15: 8,
+		685:  0,
+		822:  1,
+		1006: 2,
+		960:  3,
+		33:   4,
+		256:  5,
+		145:  6,
+		403:  7,
 	}
-	debugSetSlice = []int{8, 6, 4, 7, 12, 9, 11, 15}
+	debugSetSlice = []int{
+		403,
+		685,
+		822,
+		1006,
+		960,
+		33,
+		256,
+		145,
+	}
 	debugDelSlice = []int{}
 )
 
