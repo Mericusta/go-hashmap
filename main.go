@@ -176,7 +176,7 @@ func (d *sdhHashMapData) Reallocate(size uint) {
 
 // chain address collision
 
-// doubly linked list DLL
+// doubly linked list - DLL
 
 type dllNode struct {
 	nextNode *dllNode
@@ -270,7 +270,7 @@ func (d *dllHashMapData) Reallocate(size uint) {
 	// TODO: move data
 }
 
-// binary search tree BST
+// binary search tree - BST
 
 type bstNode struct {
 	leftChild  *bstNode
@@ -536,7 +536,7 @@ func (d *bstHashMapData) Reallocate(size uint) {
 	// TODO: move data
 }
 
-// avl tree
+// avl tree - AVLT
 
 type avltNode struct {
 	parentNode  *avltNode
@@ -743,10 +743,6 @@ func (n *avltNode) getBalanceFactor() int {
 	return n.leftHeight - n.rightHeight
 }
 
-//  5         7
-// 1 7   ->  5 8
-//  6 8     1 6 9
-//     9
 func (n *avltNode) leftRotate() *avltNode {
 	newRootNode := n.rightChild
 	if newRootNode != nil {
@@ -758,10 +754,6 @@ func (n *avltNode) leftRotate() *avltNode {
 	return newRootNode
 }
 
-//    5        3
-//   3 9  ->  2 5
-//  2 4      1 4 9
-// 1
 func (n *avltNode) rightRotate() *avltNode {
 	newRootNode := n.leftChild
 	if newRootNode != nil {
@@ -1117,6 +1109,356 @@ func (d *avltHashMapData) Reallocate(size uint) {
 
 // ----------------------------------------------------------------
 
+// 2-3 tree - TTT
+
+type tttNode struct {
+	leftValue, middleValue, rightValue            *HashValue
+	leftChild, middleChild, rightChild            *tttNode
+	parentNode, middleLeftChild, middleRightChild *tttNode
+}
+
+func (n *tttNode) preOrderTraversal(op func(*HashValue) bool, deep int) bool {
+	if n.leftChild != nil && !n.leftChild.preOrderTraversal(op, deep+1) {
+		return false
+	}
+	if n.leftValue != nil {
+		fmt.Printf("%v", strings.Repeat("\t", deep))
+		if !op(n.leftValue) {
+			return false
+		}
+	}
+	if n.middleChild != nil && !n.middleChild.preOrderTraversal(op, deep+1) {
+		return false
+	}
+	if n.rightValue != nil {
+		fmt.Printf("%v", strings.Repeat("\t", deep))
+		if !op(n.rightValue) {
+			return false
+		}
+	}
+	if n.rightChild != nil && !n.rightChild.preOrderTraversal(op, deep+1) {
+		return false
+	}
+	return true
+}
+
+func (n *tttNode) getKeyString() string {
+	var keyString string
+	if n.leftValue != nil {
+		keyString = fmt.Sprintf("%v", n.leftValue.k)
+	}
+	if n.rightValue != nil {
+		if len(keyString) == 0 {
+			keyString = fmt.Sprintf("%v", n.rightValue.k)
+		} else {
+			keyString = fmt.Sprintf("%v,%v", keyString, n.rightValue.k)
+		}
+	}
+	return keyString
+}
+
+func (n *tttNode) validateCheck() {
+	if n.leftValue == nil && n.rightValue != nil {
+		panic(fmt.Sprintf("node %+v left value is nil but right value is not nil\n", n))
+	}
+	if n.leftValue == nil && (n.leftChild != nil || n.middleChild != nil) {
+		panic(fmt.Sprintf("node %+v left value is nil but left or middle child is not nil\n", n))
+	}
+	if n.rightValue == nil && n.rightChild != nil {
+		panic(fmt.Sprintf("node %+v right value is nil but right child is not nil\n", n))
+	}
+	if n.leftChild != nil {
+		n.leftChild.validateCheck()
+	}
+	if n.rightChild != nil {
+		n.rightChild.validateCheck()
+	}
+}
+
+func (n *tttNode) resetNode(leftValue, middleValue, rightValue *HashValue, leftChild, middleChild, rightChild, parentNode *tttNode) {
+	n.setLeftChild(leftChild)
+	n.leftValue = leftValue
+
+	n.setMiddleChild(middleChild)
+	n.middleValue = middleValue
+
+	n.setRightChild(rightChild)
+	n.rightValue = rightValue
+
+	n.parentNode = parentNode
+}
+
+func (n *tttNode) resetNodeValue(leftValue, middleValue, rightValue *HashValue) {
+	n.leftValue, n.middleValue, n.rightValue = leftValue, middleValue, rightValue
+}
+
+// func (n *tttNode) splitNode() *tttNode {
+// 	newLeftChild := &tttNode{
+// 		leftValue: n.leftValue,
+// 	}
+// 	newRootNode := &tttNode{
+// 		leftValue: n.middleValue,
+// 	}
+// 	newMiddleChild := &tttNode{
+// 		leftValue: n.rightValue,
+// 	}
+// 	newRootNode.setLeftChild(newLeftChild)
+// 	newRootNode.setMiddleChild(newMiddleChild)
+// 	return newRootNode
+// }
+
+func (n *tttNode) splitNode() *tttNode {
+	newLeftChild := &tttNode{
+		leftValue: n.leftValue,
+	}
+	if n.leftChild != nil {
+		newLeftChild.setLeftChild(&tttNode{
+			leftValue: n.leftChild.leftValue,
+		})
+	}
+	if n.middleLeftChild != nil {
+		newLeftChild.setMiddleChild(&tttNode{
+			leftValue: n.middleLeftChild.leftValue,
+		})
+	}
+
+	newMiddleChild := &tttNode{
+		leftValue: n.rightValue,
+	}
+	if n.middleRightChild != nil {
+		newMiddleChild.setLeftChild(&tttNode{
+			leftValue: n.middleRightChild.leftValue,
+		})
+	}
+	if n.rightChild != nil {
+		newMiddleChild.setMiddleChild(&tttNode{
+			leftValue: n.rightChild.leftValue,
+		})
+	}
+
+	newRootNode := &tttNode{
+		leftValue: n.middleValue,
+	}
+	newRootNode.setLeftChild(newLeftChild)
+	newRootNode.setMiddleChild(newMiddleChild)
+
+	return newRootNode
+}
+
+func (n *tttNode) setLeftChild(child *tttNode) {
+	n.leftChild = child
+	if child != nil {
+		child.parentNode = n
+	}
+}
+
+func (n *tttNode) setMiddleChild(child *tttNode) {
+	n.middleChild = child
+	if child != nil {
+		child.parentNode = n
+	}
+}
+
+func (n *tttNode) setRightChild(child *tttNode) {
+	n.rightChild = child
+	if child != nil {
+		child.parentNode = n
+	}
+}
+
+func (n *tttNode) setMiddleLeftChild(child *tttNode) {
+	n.middleLeftChild = child
+	if child != nil {
+		child.parentNode = n
+	}
+}
+
+func (n *tttNode) setMiddleRightChild(child *tttNode) {
+	n.middleRightChild = child
+	if child != nil {
+		child.parentNode = n
+	}
+}
+
+type tttHashMapData struct {
+	buckets []*tttNode
+}
+
+func (d *tttHashMapData) Len() int {
+	return len(d.buckets)
+}
+
+func (d *tttHashMapData) Get(hashIndex, key int) (int, bool) {
+	node := d.buckets[hashIndex]
+	for {
+		if node == nil {
+			return 0, false
+		}
+		if node.leftValue != nil {
+			switch {
+			case node.leftValue.k == key:
+				return node.leftValue.v, true
+			case key < node.leftValue.k:
+				node = node.leftChild
+				continue
+			}
+		}
+		if node.rightValue != nil {
+			switch {
+			case node.rightValue.k == key:
+				return node.rightValue.v, true
+			case node.rightValue.k < key:
+				node = node.rightChild
+				continue
+			}
+		}
+		node = node.middleChild
+	}
+}
+
+func (d *tttHashMapData) Set(hashIndex int, insertHashValue *HashValue) bool {
+	if d.buckets[hashIndex] == nil {
+		d.buckets[hashIndex] = &tttNode{
+			leftValue: insertHashValue,
+		}
+	} else {
+		node := d.buckets[hashIndex]
+		hashValue := insertHashValue
+		var leftChild, middleChild *tttNode
+		fromSplit := false
+	INSERT:
+		for node != nil {
+			// 左边界
+			if node.leftValue != nil {
+				switch {
+				case node.leftValue.k == hashValue.k: // 左等
+					node.leftValue.v = hashValue.v
+					goto SPLIT
+				case hashValue.k < node.leftValue.k: // 左左
+					if !fromSplit && node.leftChild != nil {
+						node = node.leftChild
+						continue
+					} else {
+						if node.rightValue == nil {
+							// insert 1
+							// 2 -> 1,2
+							node.resetNodeValue(hashValue, nil, node.leftValue)
+							node.setLeftChild(leftChild)
+							node.setMiddleLeftChild(middleChild)
+							node.setMiddleRightChild(node.middleChild)
+							node.setMiddleChild(nil)
+						} else {
+							// insert 1
+							// 2,3 -> 1,2,3
+							node.resetNodeValue(hashValue, node.leftValue, node.rightValue)
+						}
+						goto SPLIT
+					}
+				}
+			}
+			// 右边界
+			if node.rightValue != nil {
+				switch {
+				case node.rightValue.k == hashValue.k: // 右等
+					node.rightValue.v = hashValue.v
+					goto SPLIT
+				case node.rightValue.k < hashValue.k: // 右右
+					if !fromSplit && node.rightChild != nil {
+						node = node.rightChild
+						continue
+					} else {
+						if node.leftValue == nil {
+							// TODO: panic here
+							// insert 3
+							// 2 -> 2,3
+							node.resetNodeValue(node.rightValue, nil, hashValue)
+						} else {
+							// insert 3
+							// 1,2 -> 1,2,3
+							node.resetNodeValue(node.leftValue, node.rightValue, hashValue)
+							node.setRightChild(middleChild)
+							node.setMiddleLeftChild(node.middleChild)
+							node.setMiddleRightChild(leftChild)
+							node.setMiddleChild(nil)
+						}
+						goto SPLIT
+					}
+				}
+			}
+			// 中子树
+			if !fromSplit && node.middleChild != nil { // 左右/右左
+				node = node.middleChild
+				continue
+			} else {
+				// insert 2
+				// 1,3 -> 1,2,3
+				if fromSplit {
+					node.resetNodeValue(node.leftValue, nil, hashValue)
+					node.setMiddleChild(leftChild)
+					node.setRightChild(middleChild)
+				} else {
+					if node.rightValue != nil {
+						node.resetNodeValue(node.leftValue, hashValue, node.rightValue)
+					} else {
+						node.resetNodeValue(node.leftValue, nil, hashValue)
+					}
+				}
+				goto SPLIT
+			}
+		}
+	SPLIT:
+		parentNode := node.parentNode
+		if node.middleValue != nil {
+			newRootNode := node.splitNode()
+			node.middleValue = nil
+			if parentNode != nil {
+				node = parentNode
+				hashValue = newRootNode.leftValue
+				leftChild = newRootNode.leftChild
+				middleChild = newRootNode.middleChild
+				fromSplit = true
+				goto INSERT
+			} else {
+				d.buckets[hashIndex] = newRootNode
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("after insert %v\n", insertHashValue.k)
+	d.buckets[hashIndex].preOrderTraversal(func(h *HashValue) bool {
+		fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
+		return true
+	}, 0)
+
+	return true
+}
+
+func (d *tttHashMapData) Del(hashIndex, key int) (int, bool) {
+	return 0, false
+}
+
+func (d *tttHashMapData) Range(op func(*HashValue) bool) {
+	for _, bucket := range d.buckets {
+		if bucket != nil {
+			fmt.Println()
+			fmt.Printf("preOrderTraversal\n")
+			if !bucket.preOrderTraversal(op, 0) {
+				return
+			}
+		}
+	}
+}
+
+func (d *tttHashMapData) Reallocate(size uint) {
+	if uint(len(d.buckets)) != size {
+		d.buckets = make([]*tttNode, size)
+	}
+	// TODO: move data
+}
+
+// ----------------------------------------------------------------
+
 type HashMap struct {
 	loadFactor float64     // allocator
 	useCount   uint        // allocator
@@ -1212,18 +1554,10 @@ func WithHashMapHashFunc(f func(int, uint) int) HashMapOption {
 	}
 }
 
-var (
-	debugKeyValueMap = map[int]int{
-		493: 3, 760: 4, 476: 5, 560: 6, 785: 7, 76: 0, 288: 1, 280: 2,
-	}
-	debugSetSlice = []int{785, 76, 288, 280, 493, 760, 476, 560}
-	debugDelSlice = []int{760, 476, 560}
-)
-
 func main() {
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
-	for index := 0; index != 1000000; index++ {
+	for index := 0; index != 1; index++ {
 		fmt.Println()
 		keyValueMap := make(map[int]int)
 		for index := 0; index != DEFAULT_HASH_MAP_SIZE>>7; index++ {
@@ -1251,13 +1585,17 @@ func main() {
 		// 	buckets: make([]*bstNode, DEFAULT_HASH_MAP_SIZE>>10),
 		// }))
 
-		hashMapTest(seed, index, keyValueMap, WithHashMapData(&avltHashMapData{
-			buckets: make([]*avltNode, DEFAULT_HASH_MAP_SIZE>>10),
-		}))
-
-		// hashMapDebug(seed, index, debugKeyValueMap, WithHashMapData(&avltHashMapData{
+		// hashMapTest(seed, index, keyValueMap, WithHashMapData(&avltHashMapData{
 		// 	buckets: make([]*avltNode, DEFAULT_HASH_MAP_SIZE>>10),
 		// }))
+
+		// hashMapTest(seed, index, keyValueMap, WithHashMapData(&tttHashMapData{
+		// 	buckets: make([]*tttNode, DEFAULT_HASH_MAP_SIZE>>10),
+		// }))
+
+		hashMapDebug(seed, index, debugKeyValueMap, WithHashMapData(&tttHashMapData{
+			buckets: make([]*tttNode, DEFAULT_HASH_MAP_SIZE>>10),
+		}))
 	}
 }
 
@@ -1304,6 +1642,14 @@ func (d debugData) outputFile() {
 	outputFile.Close()
 }
 
+var (
+	debugKeyValueMap = map[int]int{
+		8: 1, 6: 2, 4: 3, 7: 4, 12: 5, 9: 6, 11: 7, 15: 8,
+	}
+	debugSetSlice = []int{8, 6, 4, 7, 12, 9, 11, 15}
+	debugDelSlice = []int{}
+)
+
 func hashMapDebug(seed int64, index int, keyValueMap map[int]int, options ...HashMapOption) {
 	debugHashMap := MakeHashMap(options...)
 
@@ -1333,28 +1679,28 @@ func hashMapDebug(seed int64, index int, keyValueMap map[int]int, options ...Has
 		return true
 	})
 
-	for key, value := range keyValueMap {
-		if _value, hasKey := debugHashMap.Get(key); !hasKey || _value != value {
-			fmt.Printf("debugHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-		} else {
-			// fmt.Printf("debugHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
-		}
-	}
+	// for key, value := range keyValueMap {
+	// 	if _value, hasKey := debugHashMap.Get(key); !hasKey || _value != value {
+	// 		fmt.Printf("debugHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+	// 	} else {
+	// 		// fmt.Printf("debugHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+	// 	}
+	// }
 
-	for _, key := range debugDelSlice {
-		fmt.Printf("debugHashMap.Del(%v)\n", key)
-		if _value, hasKey := debugHashMap.Del(key); !hasKey || _value != keyValueMap[key] {
-			fmt.Printf("debugHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, keyValueMap[key])
-		} else {
-			// fmt.Printf("after Del, debugHashMap load factor is %v\n", debugHashMap.GetLoadFactor(0))
-			// fmt.Printf("debugHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
-		}
-	}
+	// for _, key := range debugDelSlice {
+	// 	fmt.Printf("debugHashMap.Del(%v)\n", key)
+	// 	if _value, hasKey := debugHashMap.Del(key); !hasKey || _value != keyValueMap[key] {
+	// 		fmt.Printf("debugHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, keyValueMap[key])
+	// 	} else {
+	// 		// fmt.Printf("after Del, debugHashMap load factor is %v\n", debugHashMap.GetLoadFactor(0))
+	// 		// fmt.Printf("debugHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
+	// 	}
+	// }
 
-	debugHashMap.Range(func(k, v int) bool {
-		fmt.Printf("key: %v, value: %v\n", k, v)
-		return true
-	})
+	// debugHashMap.Range(func(k, v int) bool {
+	// 	fmt.Printf("key: %v, value: %v\n", k, v)
+	// 	return true
+	// })
 }
 
 func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...HashMapOption) {
@@ -1393,29 +1739,29 @@ func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...Hash
 		return true
 	})
 
-	for key, value := range keyValueMap {
-		if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
-			fmt.Printf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-		} else {
-			// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
-		}
-	}
+	// for key, value := range keyValueMap {
+	// 	if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
+	// 		fmt.Printf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+	// 	} else {
+	// 		// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+	// 	}
+	// }
 
-	for key, value := range keyValueMap {
-		fmt.Printf("testHashMap.Del(%v)\n", key)
-		debugData.delSlice = append(debugData.delSlice, key)
-		if _value, hasKey := testHashMap.Del(key); !hasKey || _value != value {
-			fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-			debugData.outputFile()
-			return
-		} else {
-			// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
-			// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
-		}
-	}
+	// for key, value := range keyValueMap {
+	// 	fmt.Printf("testHashMap.Del(%v)\n", key)
+	// 	debugData.delSlice = append(debugData.delSlice, key)
+	// 	if _value, hasKey := testHashMap.Del(key); !hasKey || _value != value {
+	// 		fmt.Printf("testHashMap.Del(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+	// 		debugData.outputFile()
+	// 		return
+	// 	} else {
+	// 		// fmt.Printf("after Del, testHashMap load factor is %v\n", testHashMap.GetLoadFactor(0))
+	// 		// fmt.Printf("testHashMap.Del(%v), key and store value equal to origin value %v\n", key, value)
+	// 	}
+	// }
 
-	testHashMap.Range(func(k, v int) bool {
-		fmt.Printf("key: %v, value: %v\n", k, v)
-		return true
-	})
+	// testHashMap.Range(func(k, v int) bool {
+	// 	fmt.Printf("key: %v, value: %v\n", k, v)
+	// 	return true
+	// })
 }
