@@ -1343,6 +1343,14 @@ func (d *tttHashMapData) Set(hashIndex int, insertHashValue *HashValue) bool {
 							// insert 1
 							// 2 -> 1,2
 							node.resetNodeValue(hashValue, nil, node.leftValue)
+							// split
+							//      5        2,5
+							// 1,2,3 6 -> 1,3   6
+							if fromSplit {
+								node.setRightChild(node.middleChild)
+								node.setMiddleChild(middleChild)
+								node.setLeftChild(leftChild)
+							}
 						} else {
 							// insert 1
 							// 2,3 -> 1,2,3
@@ -1589,13 +1597,13 @@ func main() {
 		// 	buckets: make([]*avltNode, DEFAULT_HASH_MAP_SIZE>>10),
 		// }))
 
-		// hashMapTest(seed, index, keyValueMap, WithHashMapData(&tttHashMapData{
-		// 	buckets: make([]*tttNode, DEFAULT_HASH_MAP_SIZE>>10),
-		// }))
-
-		hashMapDebug(seed, index, debugKeyValueMap, WithHashMapData(&tttHashMapData{
+		hashMapTest(seed, index, keyValueMap, WithHashMapData(&tttHashMapData{
 			buckets: make([]*tttNode, DEFAULT_HASH_MAP_SIZE>>10),
 		}))
+
+		// hashMapDebug(seed, index, debugKeyValueMap, WithHashMapData(&tttHashMapData{
+		// 	buckets: make([]*tttNode, DEFAULT_HASH_MAP_SIZE>>10),
+		// }))
 	}
 }
 
@@ -1644,24 +1652,24 @@ func (d debugData) outputFile() {
 
 var (
 	debugKeyValueMap = map[int]int{
-		685:  0,
-		822:  1,
-		1006: 2,
-		960:  3,
-		33:   4,
-		256:  5,
-		145:  6,
-		403:  7,
+		1000: 0,
+		188:  1,
+		360:  2,
+		810:  3,
+		996:  4,
+		679:  5,
+		406:  6,
+		769:  7,
 	}
 	debugSetSlice = []int{
-		403,
-		685,
-		822,
-		1006,
-		960,
-		33,
-		256,
-		145,
+		406,
+		769,
+		1000,
+		188,
+		360,
+		810,
+		996,
+		679,
 	}
 	debugDelSlice = []int{}
 )
