@@ -1212,28 +1212,32 @@ func (n *tttNode) splitNode() *tttNode {
 		leftValue: n.leftValue,
 	}
 	if n.leftChild != nil {
-		newLeftChild.setLeftChild(&tttNode{
-			leftValue: n.leftChild.leftValue,
-		})
+		// newLeftChild.setLeftChild(&tttNode{
+		// 	leftValue: n.leftChild.leftValue,
+		// })
+		newLeftChild.setLeftChild(n.leftChild)
 	}
 	if n.middleLeftChild != nil {
-		newLeftChild.setMiddleChild(&tttNode{
-			leftValue: n.middleLeftChild.leftValue,
-		})
+		// newLeftChild.setMiddleChild(&tttNode{
+		// 	leftValue: n.middleLeftChild.leftValue,
+		// })
+		newLeftChild.setMiddleChild(n.middleLeftChild)
 	}
 
 	newMiddleChild := &tttNode{
 		leftValue: n.rightValue,
 	}
 	if n.middleRightChild != nil {
-		newMiddleChild.setLeftChild(&tttNode{
-			leftValue: n.middleRightChild.leftValue,
-		})
+		// newMiddleChild.setLeftChild(&tttNode{
+		// 	leftValue: n.middleRightChild.leftValue,
+		// })
+		newMiddleChild.setLeftChild(n.middleRightChild)
 	}
 	if n.rightChild != nil {
-		newMiddleChild.setMiddleChild(&tttNode{
-			leftValue: n.rightChild.leftValue,
-		})
+		// newMiddleChild.setMiddleChild(&tttNode{
+		// 	leftValue: n.rightChild.leftValue,
+		// })
+		newMiddleChild.setMiddleChild(n.rightChild)
 	}
 
 	newRootNode := &tttNode{
@@ -1394,9 +1398,24 @@ func (d *tttHashMapData) Set(hashIndex int, insertHashValue *HashValue) bool {
 				}
 			}
 			// 中子树
-			if !fromSplit && node.middleChild != nil { // 左右/右左
-				node = node.middleChild
-				continue
+			if node.middleChild != nil { // 左右/右左
+				// 从中间分裂上来
+				if fromSplit {
+					if node.rightValue != nil {
+						node.resetNodeValue(node.leftValue, hashValue, node.rightValue)
+						node.setMiddleLeftChild(leftChild)
+						node.setMiddleRightChild(middleChild)
+						node.setMiddleChild(nil)
+					} else {
+						node.resetNodeValue(node.leftValue, nil, hashValue)
+						node.setMiddleChild(leftChild)
+						node.setRightChild(middleChild)
+					}
+					goto SPLIT
+				} else {
+					node = node.middleChild
+					continue
+				}
 			} else {
 				// insert 2
 				// 1,3 -> 1,2,3
@@ -1564,8 +1583,9 @@ func WithHashMapHashFunc(f func(int, uint) int) HashMapOption {
 
 func main() {
 	seed := time.Now().UnixNano()
+	fmt.Printf("seed is %v\n", seed)
 	rand.Seed(seed)
-	for index := 0; index != 1; index++ {
+	for index := 0; index != 100000; index++ {
 		fmt.Println()
 		keyValueMap := make(map[int]int)
 		for index := 0; index != DEFAULT_HASH_MAP_SIZE>>7; index++ {
@@ -1652,25 +1672,13 @@ func (d debugData) outputFile() {
 
 var (
 	debugKeyValueMap = map[int]int{
-		1000: 0,
-		188:  1,
-		360:  2,
-		810:  3,
-		996:  4,
-		679:  5,
-		406:  6,
-		769:  7,
+		653: 1, 518: 2, 922: 3, 541: 4, 260: 5, 820: 6, 109: 7, 535: 0,
 	}
+
 	debugSetSlice = []int{
-		406,
-		769,
-		1000,
-		188,
-		360,
-		810,
-		996,
-		679,
+		820, 109, 535, 653, 518, 922, 541, 260,
 	}
+
 	debugDelSlice = []int{}
 )
 
@@ -1703,13 +1711,13 @@ func hashMapDebug(seed int64, index int, keyValueMap map[int]int, options ...Has
 		return true
 	})
 
-	// for key, value := range keyValueMap {
-	// 	if _value, hasKey := debugHashMap.Get(key); !hasKey || _value != value {
-	// 		fmt.Printf("debugHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-	// 	} else {
-	// 		// fmt.Printf("debugHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
-	// 	}
-	// }
+	for key, value := range keyValueMap {
+		if _value, hasKey := debugHashMap.Get(key); !hasKey || _value != value {
+			fmt.Printf("debugHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+		} else {
+			// fmt.Printf("debugHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+		}
+	}
 
 	// for _, key := range debugDelSlice {
 	// 	fmt.Printf("debugHashMap.Del(%v)\n", key)
@@ -1763,13 +1771,14 @@ func hashMapTest(seed int64, index int, keyValueMap map[int]int, options ...Hash
 		return true
 	})
 
-	// for key, value := range keyValueMap {
-	// 	if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
-	// 		fmt.Printf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
-	// 	} else {
-	// 		// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
-	// 	}
-	// }
+	for key, value := range keyValueMap {
+		if _value, hasKey := testHashMap.Get(key); !hasKey || _value != value {
+			fmt.Printf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value)
+			panic(fmt.Sprintf("testHashMap.Get(%v), not has key or store value %v not equal to origin value %v\n", key, _value, value))
+		} else {
+			// fmt.Printf("testHashMap.Get(%v), key and store value equal to origin value %v\n", key, value)
+		}
+	}
 
 	// for key, value := range keyValueMap {
 	// 	fmt.Printf("testHashMap.Del(%v)\n", key)
