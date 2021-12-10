@@ -1112,9 +1112,9 @@ func (d *avltHashMapData) Reallocate(size uint) {
 // 2-3 tree - TTT
 
 type tttNode struct {
-	leftValue, middleValue, rightValue            *HashValue
-	leftChild, middleChild, rightChild            *tttNode
-	parentNode, middleLeftChild, middleRightChild *tttNode
+	leftValue, middleValue, rightValue            *HashValue // middleValue 辅助数据
+	leftChild, middleChild, rightChild            *tttNode   // 子树
+	parentNode, middleLeftChild, middleRightChild *tttNode   // 辅助树
 }
 
 func (n *tttNode) preOrderTraversal(op func(*HashValue) bool, deep int) bool {
@@ -1175,52 +1175,18 @@ func (n *tttNode) validateCheck() {
 	}
 }
 
-func (n *tttNode) resetNode(leftValue, middleValue, rightValue *HashValue, leftChild, middleChild, rightChild, parentNode *tttNode) {
-	n.setLeftChild(leftChild)
-	n.leftValue = leftValue
-
-	n.setMiddleChild(middleChild)
-	n.middleValue = middleValue
-
-	n.setRightChild(rightChild)
-	n.rightValue = rightValue
-
-	n.parentNode = parentNode
-}
-
 func (n *tttNode) resetNodeValue(leftValue, middleValue, rightValue *HashValue) {
 	n.leftValue, n.middleValue, n.rightValue = leftValue, middleValue, rightValue
 }
-
-// func (n *tttNode) splitNode() *tttNode {
-// 	newLeftChild := &tttNode{
-// 		leftValue: n.leftValue,
-// 	}
-// 	newRootNode := &tttNode{
-// 		leftValue: n.middleValue,
-// 	}
-// 	newMiddleChild := &tttNode{
-// 		leftValue: n.rightValue,
-// 	}
-// 	newRootNode.setLeftChild(newLeftChild)
-// 	newRootNode.setMiddleChild(newMiddleChild)
-// 	return newRootNode
-// }
 
 func (n *tttNode) splitNode() *tttNode {
 	newLeftChild := &tttNode{
 		leftValue: n.leftValue,
 	}
 	if n.leftChild != nil {
-		// newLeftChild.setLeftChild(&tttNode{
-		// 	leftValue: n.leftChild.leftValue,
-		// })
 		newLeftChild.setLeftChild(n.leftChild)
 	}
 	if n.middleLeftChild != nil {
-		// newLeftChild.setMiddleChild(&tttNode{
-		// 	leftValue: n.middleLeftChild.leftValue,
-		// })
 		newLeftChild.setMiddleChild(n.middleLeftChild)
 	}
 
@@ -1228,15 +1194,9 @@ func (n *tttNode) splitNode() *tttNode {
 		leftValue: n.rightValue,
 	}
 	if n.middleRightChild != nil {
-		// newMiddleChild.setLeftChild(&tttNode{
-		// 	leftValue: n.middleRightChild.leftValue,
-		// })
 		newMiddleChild.setLeftChild(n.middleRightChild)
 	}
 	if n.rightChild != nil {
-		// newMiddleChild.setMiddleChild(&tttNode{
-		// 	leftValue: n.rightChild.leftValue,
-		// })
 		newMiddleChild.setMiddleChild(n.rightChild)
 	}
 
@@ -1246,6 +1206,109 @@ func (n *tttNode) splitNode() *tttNode {
 	newRootNode.setLeftChild(newLeftChild)
 	newRootNode.setMiddleChild(newMiddleChild)
 
+	return newRootNode
+}
+
+func (n *tttNode) newSplitNodeType1(insertHashValue *HashValue, insertType InsertType) *tttNode {
+	newLeftChild := &tttNode{}
+	if n.leftChild != nil {
+		newLeftChild.setLeftChild(n.leftChild)
+	}
+
+	newMiddleChild := &tttNode{}
+	if n.rightChild != nil {
+		newMiddleChild.setMiddleChild(n.rightChild)
+	}
+
+	newRootNode := &tttNode{}
+	newRootNode.setLeftChild(newLeftChild)
+	newRootNode.setMiddleChild(newMiddleChild)
+
+	switch insertType {
+	case InsertLeft:
+		newLeftChild.leftValue = insertHashValue
+		newRootNode.leftValue = n.leftValue
+		newMiddleChild.leftValue = n.rightValue
+	case InsertMiddle:
+		newLeftChild.leftValue = n.leftValue
+		newRootNode.leftValue = insertHashValue
+		newMiddleChild.leftValue = n.rightValue
+	case InsertRight:
+		newLeftChild.leftValue = n.leftValue
+		newRootNode.leftValue = n.rightValue
+		newMiddleChild.leftValue = insertHashValue
+	}
+
+	return newRootNode
+}
+
+func (n *tttNode) newSplitNodeType2(originNode, newNode *tttNode) {
+	if n.leftChild == originNode {
+		//     D     C     C,D
+		//    /| +  /| =  / | \
+		// A,C E   A B   A  B  E
+		n.setRightChild(n.middleChild)
+		n.setMiddleChild(newNode.middleChild)
+		n.setLeftChild(newNode.leftChild)
+		n.resetNodeValue(newNode.leftValue, nil, n.leftValue)
+	} else if n.middleChild == originNode {
+		//   D       F     D,F
+		//  /|   +  /| =  / | \
+		// C E,G   E G   C  E  G
+		n.setLeftChild(n.leftChild)
+		n.setMiddleChild(newNode.leftChild)
+		n.setRightChild(newNode.middleChild)
+		n.resetNodeValue(n.leftValue, nil, newNode.leftValue)
+	} else {
+		panic("error node")
+	}
+}
+
+func (n *tttNode) newSplitNodeType3(originNode, newNode *tttNode) *tttNode {
+	newRootNode := &tttNode{}
+	newLeftChild := &tttNode{}
+	newMiddleChild := &tttNode{}
+	switch {
+	//                      E
+	//                     /|
+	//     E,J       C    C J
+	//    / | \  +  /| = /| |\
+	// A,D  H  L   A D  A D H L
+	case n.leftChild == originNode:
+		newRootNode.leftValue = n.leftValue
+		newLeftChild = newNode
+		newMiddleChild.leftValue = n.rightValue
+		newMiddleChild.setLeftChild(n.middleChild)
+		newMiddleChild.setMiddleChild(n.rightChild)
+	//                        G
+	//                       /|
+	//     E,J       G      E J
+	//    / | \  +  /| =   /| |\
+	// A,D F,G L   F H  A,D F H L
+	case n.middleChild == originNode:
+		newRootNode.leftValue = newNode.leftValue
+		newLeftChild.leftValue = n.leftValue
+		newLeftChild.setLeftChild(n.leftChild)
+		newLeftChild.setMiddleChild(newNode.leftChild)
+		newMiddleChild.leftValue = n.rightValue
+		newMiddleChild.setLeftChild(newNode.middleChild)
+		newMiddleChild.setMiddleChild(n.rightChild)
+	//                        J
+	//                       /|
+	//     E,J         L    C L
+	//    / | \    +  /| = /| |\
+	// A,D  H  K,L   K M  A D K M
+	case n.rightChild == originNode:
+		newRootNode.leftValue = n.rightValue
+		newMiddleChild = newNode
+		newLeftChild.leftValue = n.leftValue
+		newLeftChild.setLeftChild(n.leftChild)
+		newLeftChild.setMiddleChild(n.middleChild)
+	default:
+		panic("error node")
+	}
+	newRootNode.setLeftChild(newLeftChild)
+	newRootNode.setMiddleChild(newMiddleChild)
 	return newRootNode
 }
 
@@ -1284,6 +1347,31 @@ func (n *tttNode) setMiddleRightChild(child *tttNode) {
 	}
 }
 
+type tttNodeType int
+
+const (
+	errorNode tttNodeType = iota
+	twoChildren
+	threeChildren
+	fourChildren
+)
+
+func (n *tttNode) getNodeType() tttNodeType {
+	if n.leftValue != nil {
+		if n.rightValue != nil {
+			return threeChildren
+		} else {
+			return twoChildren
+		}
+	}
+	if n.rightValue != nil {
+		// TODO: panic here
+		return twoChildren
+	}
+	// TODO: panic here
+	return errorNode
+}
+
 type tttHashMapData struct {
 	buckets []*tttNode
 }
@@ -1293,34 +1381,47 @@ func (d *tttHashMapData) Len() int {
 }
 
 func (d *tttHashMapData) Get(hashIndex, key int) (int, bool) {
-	node := d.buckets[hashIndex]
-	for {
-		if node == nil {
-			return 0, false
-		}
-		if node.leftValue != nil {
-			switch {
-			case node.leftValue.k == key:
-				return node.leftValue.v, true
-			case key < node.leftValue.k:
-				node = node.leftChild
-				continue
+	if d.buckets[hashIndex] == nil {
+		return 0, false
+	} else {
+		node := d.buckets[hashIndex]
+		for {
+			if node.leftValue != nil {
+				switch {
+				case node.leftValue.k == key:
+					return node.leftValue.v, true
+				case key < node.leftValue.k:
+					if node.leftChild != nil {
+						node = node.leftChild
+						continue
+					} else {
+						return 0, false
+					}
+				}
+			}
+			if node.rightValue != nil {
+				switch {
+				case node.rightValue.k == key:
+					return node.rightValue.v, true
+				case node.rightValue.k < key:
+					if node.rightChild != nil {
+						node = node.rightChild
+						continue
+					} else {
+						return 0, false
+					}
+				}
+			}
+			if node.middleChild != nil {
+				node = node.middleChild
+			} else {
+				return 0, false
 			}
 		}
-		if node.rightValue != nil {
-			switch {
-			case node.rightValue.k == key:
-				return node.rightValue.v, true
-			case node.rightValue.k < key:
-				node = node.rightChild
-				continue
-			}
-		}
-		node = node.middleChild
 	}
 }
 
-func (d *tttHashMapData) Set(hashIndex int, insertHashValue *HashValue) bool {
+func (d *tttHashMapData) set(hashIndex int, insertHashValue *HashValue) bool {
 	if d.buckets[hashIndex] == nil {
 		d.buckets[hashIndex] = &tttNode{
 			leftValue: insertHashValue,
@@ -1331,7 +1432,7 @@ func (d *tttHashMapData) Set(hashIndex int, insertHashValue *HashValue) bool {
 		var leftChild, middleChild *tttNode
 		fromSplit := false
 	INSERT:
-		for node != nil {
+		for {
 			// 左边界
 			if node.leftValue != nil {
 				switch {
@@ -1461,8 +1562,159 @@ func (d *tttHashMapData) Set(hashIndex int, insertHashValue *HashValue) bool {
 	return true
 }
 
+type InsertType int
+
+const (
+	InsertError InsertType = iota
+	InsertLeft
+	InsertRight
+	InsertMiddle
+)
+
+func (d *tttHashMapData) Set(hashIndex int, insertHashValue *HashValue) bool {
+	if d.buckets[hashIndex] == nil {
+		d.buckets[hashIndex] = &tttNode{
+			leftValue: insertHashValue,
+		}
+	} else {
+		insertType := InsertError
+		node := d.buckets[hashIndex]
+		for {
+			if node.leftValue != nil {
+				switch {
+				case node.leftValue.k == insertHashValue.k:
+					node.leftValue.v = insertHashValue.v
+					return true
+				case insertHashValue.k < node.leftValue.k:
+					if node.leftChild != nil {
+						node = node.leftChild
+						continue
+					} else {
+						insertType = InsertLeft
+						goto SPLIT
+					}
+				}
+			}
+			if node.rightValue != nil {
+				switch {
+				case node.rightValue.k == insertHashValue.k:
+					node.rightValue.v = insertHashValue.v
+					return true
+				case node.rightValue.k < insertHashValue.k:
+					if node.rightChild != nil {
+						node = node.rightChild
+						continue
+					} else {
+						insertType = InsertRight
+						goto SPLIT
+					}
+				}
+			}
+			if node.middleChild != nil {
+				node = node.middleChild
+			} else {
+				if node.rightValue == nil {
+					insertType = InsertRight
+				} else if node.leftValue == nil {
+					insertType = InsertLeft
+					panic("error node")
+				} else {
+					insertType = InsertMiddle
+				}
+				goto SPLIT
+			}
+		}
+	SPLIT:
+		switch node.getNodeType() {
+		case twoChildren:
+			switch insertType {
+			case InsertLeft:
+				node.resetNodeValue(insertHashValue, nil, node.leftValue)
+			case InsertRight:
+				node.resetNodeValue(node.leftValue, nil, insertHashValue)
+			default:
+				panic("error insert type")
+			}
+		case threeChildren:
+			if insertType == InsertError {
+				panic("error insert type")
+			}
+			if node.parentNode == nil {
+				d.buckets[hashIndex] = node.newSplitNodeType1(insertHashValue, insertType)
+			} else {
+				switch node.parentNode.getNodeType() {
+				case twoChildren:
+					newRootNode := node.newSplitNodeType1(insertHashValue, insertType)
+					node.parentNode.newSplitNodeType2(node, newRootNode)
+				case threeChildren:
+					newRootNode := node.newSplitNodeType1(insertHashValue, insertType)
+				RESPLIT:
+					newRootNode = node.parentNode.newSplitNodeType3(node, newRootNode)
+					node = node.parentNode
+					if node.parentNode == nil {
+						d.buckets[hashIndex] = newRootNode
+					} else {
+						goto RESPLIT
+					}
+				default:
+					panic("error node type")
+				}
+			}
+		default:
+			panic("error node type")
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("after insert %v\n", insertHashValue.k)
+	d.buckets[hashIndex].preOrderTraversal(func(h *HashValue) bool {
+		fmt.Printf("DEBUG: range key: %v, value: %v\n", h.k, h.v)
+		return true
+	}, 0)
+
+	return true
+}
+
 func (d *tttHashMapData) Del(hashIndex, key int) (int, bool) {
-	return 0, false
+	if d.buckets[hashIndex] == nil {
+		return 0, false
+	} else {
+		node := d.buckets[hashIndex]
+		var value int
+		var deleteNode *tttNode
+		for {
+			if node.leftValue != nil {
+				switch {
+				case node.leftValue.k == key:
+					value = node.leftValue.v
+					deleteNode = node
+					node.resetNodeValue(node.rightValue, nil, nil)
+					goto REBALANCE
+				case key < node.leftValue.k:
+					node = node.leftChild
+					continue
+				}
+			}
+			if node.rightValue != nil {
+				switch {
+				case node.rightValue.k == key:
+					value = node.rightValue.v
+					deleteNode = node
+					node.resetNodeValue(node.leftValue, nil, nil)
+					goto REBALANCE
+				case node.rightValue.k < key:
+					node = node.rightChild
+					continue
+				}
+			}
+			node = node.middleChild
+		}
+	REBALANCE:
+		if deleteNode.leftValue != nil || deleteNode.rightValue != nil {
+			return value, true
+		}
+		return value, true
+	}
 }
 
 func (d *tttHashMapData) Range(op func(*HashValue) bool) {
@@ -1585,7 +1837,7 @@ func main() {
 	seed := time.Now().UnixNano()
 	fmt.Printf("seed is %v\n", seed)
 	rand.Seed(seed)
-	for index := 0; index != 100000; index++ {
+	for index := 0; index != 10000; index++ {
 		fmt.Println()
 		keyValueMap := make(map[int]int)
 		for index := 0; index != DEFAULT_HASH_MAP_SIZE>>7; index++ {
@@ -1672,12 +1924,14 @@ func (d debugData) outputFile() {
 
 var (
 	debugKeyValueMap = map[int]int{
-		653: 1, 518: 2, 922: 3, 541: 4, 260: 5, 820: 6, 109: 7, 535: 0,
+		1023: 6, 982: 7, 528: 0, 20: 1, 199: 2, 702: 3, 224: 4, 170: 5,
 	}
 
 	debugSetSlice = []int{
-		820, 109, 535, 653, 518, 922, 541, 260,
+		170, 1023, 982, 528, 20, 199, 702, 224,
 	}
+
+	debugGetSlice = []int{}
 
 	debugDelSlice = []int{}
 )
